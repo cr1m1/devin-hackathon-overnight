@@ -83,9 +83,13 @@ export function NewRunForm({ chain }: { chain: string[] }) {
           . Review may insert <span className={`font-medium ${ROLE_COLOR.amend.text}`}>Amend</span> rounds. Each stage is a separate Devin session.
         </p>
         {error && <p className="text-sm text-bad mb-3">{error}</p>}
-        <Button type="submit" disabled={submitting || !repo || goal.trim().length < 8}>
-          {submitting ? "Starting…" : "Start the run"}
-        </Button>
+        <div className="flex items-center gap-4">
+          <Button type="submit" disabled={submitting || !repo || goal.trim().length < 8}>
+            {submitting ? "Starting…" : "Start the run"}
+          </Button>
+          {!submitting && goal.trim().length < 8 && <span className="text-xs text-ink-3">Describe the goal in at least a sentence.</span>}
+          {!submitting && goal.trim().length >= 8 && !repo && <span className="text-xs text-ink-3">Choose a repository from the list.</span>}
+        </div>
       </div>
     </form>
   );
@@ -130,35 +134,54 @@ function RepoPicker({ value, onChange }: { value: string; onChange: (v: string) 
   if (repos === null) return <div className={inputClass + " text-ink-3"}>Loading repositories…</div>;
   if (repos.length === 0) return <p className="text-sm text-ink-3">No allowed repositories are reachable. Check the Devin GitHub connection and the allowlist in Settings.</p>;
 
+  const exact = (text: string) => repos.find((r) => r.path.toLowerCase() === text.trim().toLowerCase());
+  const pick = (path: string) => {
+    onChange(path);
+    setQ(path);
+    setOpen(false);
+  };
+
   return (
     <div className="relative">
       <input
         type="text"
-        value={open ? q : value || q}
-        onFocus={() => {
-          setOpen(true);
-          setQ("");
+        value={q}
+        onFocus={() => setOpen(true)}
+        onBlur={() => {
+          setTimeout(() => setOpen(false), 120);
+          const m = exact(q);
+          if (m) pick(m.path);
         }}
-        onBlur={() => setTimeout(() => setOpen(false), 120)}
-        onChange={(e) => setQ(e.target.value)}
+        onChange={(e) => {
+          const text = e.target.value;
+          setQ(text);
+          setOpen(true);
+          const m = exact(text);
+          onChange(m ? m.path : ""); // typing an exact path counts as picking it
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && open && filtered.length > 0) {
+            e.preventDefault();
+            pick(filtered[0].path);
+          }
+          if (e.key === "Escape") setOpen(false);
+        }}
         placeholder="owner/name"
-        className={inputClass + " font-mono text-sm"}
+        className={clsx(inputClass, "font-mono text-sm", value && "border-ok")}
         aria-autocomplete="list"
+        aria-expanded={open}
       />
+      {!value && q && !open && <p className="text-xs text-warn mt-1.5">Pick a repository from the list (or type its exact owner/name).</p>}
       {open && (
         <ul className="absolute z-10 mt-1 w-full max-h-72 overflow-auto rounded-md border border-rule bg-white py-1">
-          {filtered.length === 0 && <li className="px-3 py-2 text-sm text-ink-3">No match.</li>}
-          {filtered.map((r) => (
+          {filtered.length === 0 && <li className="px-3 py-2 text-sm text-ink-3">No match among the {repos.length} repositories this connection may use.</li>}
+          {filtered.map((r, i) => (
             <li key={r.path}>
               <button
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
-                onClick={() => {
-                  onChange(r.path);
-                  setQ("");
-                  setOpen(false);
-                }}
-                className={clsx("w-full text-left px-3 py-2 hover:bg-paper-2 flex items-baseline justify-between gap-3", r.path === value && "bg-paper-2")}
+                onClick={() => pick(r.path)}
+                className={clsx("w-full text-left px-3 py-2 hover:bg-paper-2 flex items-baseline justify-between gap-3", (r.path === value || (i === 0 && !value)) && "bg-paper-2")}
               >
                 <span className="font-mono text-sm">{r.path}</span>
                 <span className="text-xs text-ink-3 truncate">{r.language ?? ""}</span>
