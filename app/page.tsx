@@ -1,9 +1,14 @@
+import { ConnectGate } from "@/components/connect-gate";
 import { NewRunForm } from "@/components/new-run-form";
+import { currentConnection } from "@/lib/connections";
 import { TEMPLATES } from "@/lib/flow/templates";
 import { ROLES } from "@/lib/flow/roles";
 
-export default function NewRunPage() {
+export const dynamic = "force-dynamic";
+
+export default async function NewRunPage() {
   const chain = TEMPLATES.build.stages.map((r) => ROLES[r].title);
+  const c = await currentConnection();
   return (
     <div>
       <div className="mb-8">
@@ -13,7 +18,7 @@ export default function NewRunPage() {
           report and a pull request.
         </p>
       </div>
-      <NewRunForm chain={chain} />
+      {c ? <NewRunForm chain={chain} /> : <ConnectGate what="It takes one minute: an organization id and a service-user key." />}
     </div>
   );
 }

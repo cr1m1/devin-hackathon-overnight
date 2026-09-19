@@ -8,21 +8,9 @@ const num = (name: string, fallback: number): number => {
   return n;
 };
 
-const list = (name: string, fallback: string): string[] =>
-  (process.env[name] ?? fallback)
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-
 export const env = {
   get cronSecret() {
     return process.env.CRON_SECRET ?? "";
-  },
-  get repoAllowlist() {
-    return list("REPO_ALLOWLIST", "cr1m1/*");
-  },
-  get repoDenylist() {
-    return list("REPO_DENYLIST", "Namadgi/*");
   },
   get maxStagesPerRun() {
     return num("MAX_STAGES_PER_RUN", 16);

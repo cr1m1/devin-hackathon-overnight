@@ -2,12 +2,16 @@ import Link from "next/link";
 import { Empty, LinkButton, Mono, PageTitle, RunPill } from "@/components/ui";
 import { relative, resultLine, shortDate, shortTime } from "@/lib/format";
 import { listRuns } from "@/lib/runs/queries";
+import { currentConnection } from "@/lib/connections";
+import { ConnectGate } from "@/components/connect-gate";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Runs" };
 
 export default async function RunsPage() {
-  const runs = await listRuns(100);
+  const c = await currentConnection();
+  if (!c) return <ConnectGate what="Your runs appear here once connected." />;
+  const runs = await listRuns(c.id, 100);
   return (
     <div>
       <PageTitle aside={<LinkButton href="/">New run</LinkButton>}>Runs</PageTitle>

@@ -1,13 +1,15 @@
 import { and, asc, eq, inArray, isNull, lt } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
 import { runs, stages, type Run, type Stage } from "@/lib/db/schema";
-import * as devin from "@/lib/devin/client";
+import { clientFor, connectionById } from "@/lib/connections";
+import { DevinApiError, type DevinClient } from "@/lib/devin/client";
 import { env } from "@/lib/env";
+import type { Connection } from "@/lib/db/schema";
 import { buildPrompt, sessionTags, sessionTitle } from "@/lib/flow/prompt";
 import { playbookIdFor, ROLES } from "@/lib/flow/roles";
 import { STRUCTURED_OUTPUT_SCHEMA } from "@/lib/flow/schema";
 import { getTemplate } from "@/lib/flow/templates";
-import { admit, nextAdmissible, outcomeWithoutAcceptance } from "./admission";
+import { admit, nextAdmissible, outcomeWithoutAcceptance, type Limits } from "./admission";
 import { decidePoll, mergePullRequests, NUDGE_DEADLINE, NUDGE_IDLE } from "./poll";
 import { terminateRun } from "./terminate";
 import type { TickContext } from "./tick";
@@ -16,6 +18,16 @@ import { addMinutes, isoUtc } from "@/lib/time";
 // Plan §11.1, §11.2, §11.4 and §12.5. Phase 3 (routing) lives in routing.ts.
 
 const ORPHAN_AFTER_MS = 90_000;
+
+/** Credentials come from the run's Connection (bring-your-own Devin). A run without one cannot proceed. */
+async function clientForRun(db: Db, run: Run, now: Date): Promise<{ client: DevinClient; connection: Connection } | null> {
+  const connection = await connectionById(run.connectionId);
+  if (!connection) {
+    if (run.status === "queued" || run.status === "running") await terminateRun(db, run, "failed", "Devin connection removed", now);
+    return null;
+  }
+  return { client: clientFor(connection), connection };
+}
 const OVERRUN_NUDGE = 3;
 const OVERRUN_FAIL = 4;
 
@@ -35,10 +47,12 @@ export async function pollPhase({ db, now, result, deadline }: TickContext): Pro
     const [run] = await db.select().from(runs).where(eq(runs.id, stage.runId));
     if (!run) continue;
     try {
+      const resolved = await clientForRun(db, run, now);
+      if (!resolved) continue;
       if (!stage.sessionId) {
-        await reconcileStage(db, stage, now);
+        await reconcileStage(db, resolved.client, stage, now);
       } else {
-        await pollStage(db, run, stage, now);
+        await pollStage(db, resolved.client, run, stage, now);
       }
       result.polled++;
     } catch (e) {
@@ -47,7 +61,7 @@ export async function pollPhase({ db, now, result, deadline }: TickContext): Pro
   }
 }
 
-async function pollStage(db: Db, run: Run, stage: Stage, now: Date): Promise<void> {
+async function pollStage(db: Db, devin: DevinClient, run: Run, stage: Stage, now: Date): Promise<void> {
   const session = await devin.getSession(stage.sessionId!);
   const template = getTemplate(run.templateId);
   const action = decidePoll({ stage, session, acceptanceRole: template.acceptance, now });
@@ -88,7 +102,7 @@ async function pollStage(db: Db, run: Run, stage: Stage, now: Date): Promise<voi
     }
     case "working":
       await touch(db, stage, now, acus);
-      await deadlineHandling(db, run, stage, now);
+      await deadlineHandling(db, devin, run, stage, now);
       return;
     case "nudge":
       await devin.messageSession(stage.sessionId!, NUDGE_IDLE);
@@ -154,7 +168,7 @@ async function finishStage(
 }
 
 /** §12.5 + §14 overrun: nudge before the deadline, stop after grace; nudge at 3× estimate, stop at 4×. */
-async function deadlineHandling(db: Db, run: Run, stage: Stage, now: Date): Promise<void> {
+async function deadlineHandling(db: Db, devin: DevinClient, run: Run, stage: Stage, now: Date): Promise<void> {
   if (!stage.sessionId) return;
   const est = ROLES[stage.role].estimateMinutes;
   const ranMin = stage.startedAt ? (now.getTime() - stage.startedAt.getTime()) / 60_000 : 0;
@@ -190,14 +204,17 @@ export async function reconcilePhase({ db, now, result }: TickContext): Promise<
     .where(and(eq(stages.status, "starting"), isNull(stages.sessionId), lt(stages.updatedAt, new Date(now.getTime() - ORPHAN_AFTER_MS))));
   for (const s of orphans) {
     try {
-      await reconcileStage(db, s, now);
+      const [run] = await db.select().from(runs).where(eq(runs.id, s.runId));
+      const resolved = run ? await clientForRun(db, run, now) : null;
+      if (!resolved) continue;
+      await reconcileStage(db, resolved.client, s, now);
     } catch (e) {
       result.errors.push(`reconcile ${s.id}: ${msg(e)}`);
     }
   }
 }
 
-async function reconcileStage(db: Db, stage: Stage, now: Date): Promise<void> {
+async function reconcileStage(db: Db, devin: DevinClient, stage: Stage, now: Date): Promise<void> {
   if (now.getTime() - stage.updatedAt.getTime() < ORPHAN_AFTER_MS) return; // give the create call time
   const found = await devin.findSessionsByTag(`stage:${stage.id}`);
   if (found.length === 1) {
@@ -227,10 +244,12 @@ export async function admitPhase({ db, now, result, deadline }: TickContext): Pr
     .where(inArray(runs.status, ["queued", "running"]))
     .orderBy(asc(runs.createdAt))
     .limit(50);
-  const limits = { maxStagesPerRun: env.maxStagesPerRun, repoAllowlist: env.repoAllowlist, repoDenylist: env.repoDenylist };
-
   for (const run of candidates) {
     if (result.started >= env.tickMaxStarts || Date.now() > deadline) break;
+    const resolved = await clientForRun(db, run, now);
+    if (!resolved) continue;
+    const { client: devin, connection } = resolved;
+    const limits: Limits = { maxStagesPerRun: env.maxStagesPerRun, repoAllowlist: connection.repoAllowlist, repoDenylist: connection.repoDenylist };
     const stageRows = await db.select().from(stages).where(eq(stages.runId, run.id)).orderBy(asc(stages.seq));
     // Routing (Phase 3) must act on every finished Stage before anything new is admitted.
     if (stageRows.some((s) => (s.status === "done" || s.status === "failed") && !s.verdictSeenAt)) continue;
@@ -270,7 +289,7 @@ export async function admitPhase({ db, now, result, deadline }: TickContext): Pr
       await db.update(stages).set({ sessionId: session.session_id, sessionUrl: session.url, status: "running", updatedAt: now }).where(eq(stages.id, next.id));
       result.started++;
     } catch (e) {
-      if (e instanceof devin.DevinApiError) {
+      if (e instanceof DevinApiError) {
         if (e.isRateLimit) {
           await db.update(stages).set({ status: "pending", startedAt: null, error: "rate limited; will retry", updatedAt: now }).where(eq(stages.id, next.id));
         } else {

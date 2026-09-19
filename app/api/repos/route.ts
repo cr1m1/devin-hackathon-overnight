@@ -1,17 +1,19 @@
-import { devinConfigured } from "@/lib/devin/client";
+import { currentConnection } from "@/lib/connections";
 import { allowedRepos } from "@/lib/devin/repos";
 import { json } from "@/lib/http";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
-  if (!devinConfigured()) return json({ repos: [], error: "Devin is not configured" }, 503);
+  const c = await currentConnection();
+  if (!c) return json({ repos: [], error: "Connect your Devin account in Settings first." }, 401);
   const q = new URL(req.url).searchParams.get("q")?.toLowerCase() ?? "";
   try {
-    const repos = (await allowedRepos()).filter((r) => !q || r.path.toLowerCase().includes(q));
+    const repos = (await allowedRepos(c)).filter((r) => !q || r.path.toLowerCase().includes(q));
     return json({ repos });
   } catch (e) {
     console.error(e);
-    return json({ repos: [], error: "could not list repositories" }, 502);
+    return json({ repos: [], error: "Could not list repositories from Devin." }, 502);
   }
 }

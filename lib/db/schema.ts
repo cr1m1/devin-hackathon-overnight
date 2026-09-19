@@ -20,10 +20,33 @@ export type PullRequestRef = { url: string; state?: string | null; title?: strin
 
 const ts = (name: string) => timestamp(name, { withTimezone: true, mode: "date" });
 
+// A Connection is one user's own Devin credentials (bring-your-own). The key is stored encrypted;
+// the browser holds an httpOnly cookie whose sha256 matches token_hash. Nothing is shared between connections.
+export const connections = pgTable("connections", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  devinOrgId: text("devin_org_id").notNull(),
+  devinApiKeyEnc: text("devin_api_key_enc").notNull(),
+  keyHint: text("key_hint").notNull(), // "cog_…ab12"
+  tokenHash: text("token_hash").notNull().unique(),
+  repoAllowlist: text("repo_allowlist")
+    .array()
+    .notNull()
+    .default(sql`ARRAY['*/*']::text[]`),
+  repoDenylist: text("repo_denylist")
+    .array()
+    .notNull()
+    .default(sql`ARRAY[]::text[]`),
+  lastVerifiedAt: ts("last_verified_at"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+});
+
 export const runs = pgTable(
   "runs",
   {
     id: text("id").primaryKey(),
+    connectionId: text("connection_id").references(() => connections.id, { onDelete: "set null" }),
     workspaceId: text("workspace_id"),
     goal: text("goal").notNull(),
     repo: text("repo").notNull(),
@@ -46,9 +69,9 @@ export const runs = pgTable(
   (t) => [
     index("runs_status_deadline_idx").on(t.status, t.deadlineAt),
     index("runs_created_idx").on(t.createdAt),
+    index("runs_connection_idx").on(t.connectionId, t.createdAt),
     check("runs_terminal_has_reason", sql`${t.status} IN ('queued','running') OR ${t.outcomeReason} IS NOT NULL`),
-    // Belt; the braces are REPO_ALLOWLIST / REPO_DENYLIST in lib/repos.ts (§12.0, AGENTS.md).
-    check("runs_repo_owner", sql`${t.repo} ~ '^cr1m1/[A-Za-z0-9_.-]+$'`),
+    check("runs_repo_shape", sql`${t.repo} ~ '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$'`),
   ],
 );
 
@@ -130,3 +153,4 @@ export type NewRun = typeof runs.$inferInsert;
 export type Stage = typeof stages.$inferSelect;
 export type NewStage = typeof stages.$inferInsert;
 export type Schedule = typeof schedules.$inferSelect;
+export type Connection = typeof connections.$inferSelect;

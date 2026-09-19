@@ -38,8 +38,12 @@ describe("isRepoAllowed (AGENTS.md hard rule)", () => {
       expect(isRepoAllowed(r, ALLOW, DENY)).toBe(false);
     }
   });
-  it("uses the env defaults (cr1m1 allowed, Namadgi denied) when no lists are passed", () => {
-    expect(isRepoAllowed("cr1m1/lalafo-stats")).toBe(true);
-    expect(isRepoAllowed("Namadgi/x")).toBe(false);
+});
+
+describe("wildcard for bring-your-own connections", () => {
+  it("*/* allows any well-formed repo, deny list still wins", () => {
+    expect(isRepoAllowed("someone/anything", ["*/*"], [])).toBe(true);
+    expect(isRepoAllowed("someone/anything", ["*/*"], ["someone/*"])).toBe(false);
+    expect(isRepoAllowed("not-a-repo", ["*/*"], [])).toBe(false);
   });
 });

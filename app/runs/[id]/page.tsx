@@ -6,12 +6,14 @@ import { Mono, RunPill } from "@/components/ui";
 import { TERMINAL_RUN_STATUSES } from "@/lib/db/schema";
 import { acu, relative, resultLine, shortDate, shortTime } from "@/lib/format";
 import { getRunWithStages } from "@/lib/runs/queries";
+import { currentConnection } from "@/lib/connections";
 
 export const dynamic = "force-dynamic";
 
 export default async function RunPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const data = await getRunWithStages(id);
+  const c = await currentConnection();
+  const data = await getRunWithStages(id, c?.id ?? null);
   if (!data) notFound();
   const { run, stages } = data;
   const terminal = TERMINAL_RUN_STATUSES.includes(run.status);

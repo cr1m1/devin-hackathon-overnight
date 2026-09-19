@@ -1,32 +1,81 @@
+import { ConnectDevinForm, DisconnectButton, RepoListsEditor } from "@/components/connect-devin";
 import { Mono, PageTitle, Pill } from "@/components/ui";
-import { getHealth } from "@/lib/health";
-import { relative } from "@/lib/format";
+import { currentConnection } from "@/lib/connections";
+import { getConnectionHealth, getHealth } from "@/lib/health";
+import { relative, shortDate } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Settings" };
 
-// §13.4: read-only configuration health. No credentials are stored or shown here.
 export default async function SettingsPage() {
-  const h = await getHealth();
-  const owners = Object.entries(h.owners).sort((a, b) => b[1] - a[1]);
+  const [h, c] = await Promise.all([getHealth(), currentConnection()]);
+  const ch = c ? await getConnectionHealth(c) : null;
+  const owners = ch ? Object.entries(ch.owners).sort((x, y) => y[1] - x[1]) : [];
+
   return (
     <div>
       <PageTitle>Settings</PageTitle>
 
-      <Section title="Connections">
+      <Section title="Your Devin" hint={c ? undefined : "Connect the Devin organization Overnight should run sessions in. Credentials never leave this instance's database."}>
+        {c ? (
+          <>
+            <Row label="Connection" value={<span>{c.name}</span>} />
+            <Row label="Organization" value={<Mono className="text-ink">{c.devinOrgId}</Mono>} />
+            <Row label="API key" value={<Mono className="text-ink">{c.keyHint}</Mono>} />
+            <Row
+              label="Status"
+              value={
+                ch?.devin === "ok" ? (
+                  <span className="flex items-center gap-2">
+                    <Pill tone="ok">key accepted</Pill>
+                    <Mono>connected {shortDate(c.createdAt)}</Mono>
+                  </span>
+                ) : (
+                  <Pill tone="bad">Devin rejected the stored key</Pill>
+                )
+              }
+            />
+            <div className="pt-4">
+              <DisconnectButton />
+            </div>
+          </>
+        ) : (
+          <div className="pt-4">
+            <ConnectDevinForm encryptionReady={h.encryption === "ok"} />
+          </div>
+        )}
+      </Section>
+
+      {c && ch && (
+        <Section
+          title="Repositories"
+          hint="Access itself is granted in your Devin organization's GitHub connection. These rules further restrict what this connection's runs may target."
+        >
+          <Row label="Reachable by Devin" value={<Mono className="text-ink">{ch.repos_reachable}</Mono>} />
+          <Row label="Allowed by rules" value={<Mono className="text-ink">{ch.repos_allowed}</Mono>} />
+          {owners.length > 0 && (
+            <Row
+              label="By owner"
+              value={
+                <span className="flex flex-wrap gap-x-4 gap-y-1">
+                  {owners.map(([o, n]) => (
+                    <Mono key={o} className="text-ink">
+                      {o}: {n}
+                    </Mono>
+                  ))}
+                </span>
+              }
+            />
+          )}
+          <div className="pt-4">
+            <RepoListsEditor allow={c.repoAllowlist} deny={c.repoDenylist} />
+          </div>
+        </Section>
+      )}
+
+      <Section title="This instance">
         <Row label="Database" value={h.db === "ok" ? <Pill tone="ok">reachable</Pill> : <Pill tone="bad">unreachable</Pill>} />
-        <Row
-          label="Devin"
-          value={
-            h.devin === "ok" ? (
-              <Pill tone="ok">key and organization accepted</Pill>
-            ) : h.devin === "unconfigured" ? (
-              <Pill tone="warn">not configured</Pill>
-            ) : (
-              <Pill tone="bad">rejected</Pill>
-            )
-          }
-        />
+        <Row label="Credential storage" value={h.encryption === "ok" ? <Pill tone="ok">encrypted at rest</Pill> : <Pill tone="bad">encryption key missing</Pill>} />
         <Row
           label="Scheduler"
           value={
@@ -40,30 +89,6 @@ export default async function SettingsPage() {
             )
           }
         />
-      </Section>
-
-      <Section title="Repositories" hint="Access is granted in Devin's GitHub connection, not here. This instance further restricts which of those repositories a run may target.">
-        <Row label="Reachable by Devin" value={<Mono className="text-ink">{h.repos_reachable}</Mono>} />
-        <Row label="Allowed here" value={<Mono className="text-ink">{h.repos_allowed}</Mono>} />
-        <Row label="Allow list" value={<Mono className="text-ink">{h.allowlist.join(", ") || "—"}</Mono>} />
-        <Row label="Deny list" value={<Mono className="text-ink">{h.denylist.join(", ") || "—"}</Mono>} />
-        {owners.length > 0 && (
-          <Row
-            label="By owner"
-            value={
-              <span className="flex flex-wrap gap-x-4 gap-y-1">
-                {owners.map(([o, n]) => (
-                  <Mono key={o} className="text-ink">
-                    {o}: {n}
-                  </Mono>
-                ))}
-              </span>
-            }
-          />
-        )}
-      </Section>
-
-      <Section title="Defaults">
         <Row label="Stage budget per run" value={<Mono className="text-ink">{h.defaults.max_stages_per_run} stages</Mono>} />
         <Row label="ACU budget per run" value={<Mono className="text-ink">{h.defaults.max_acu_per_run} ACU</Mono>} />
         <Row

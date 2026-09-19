@@ -1,11 +1,11 @@
 import { z } from "zod";
 import { db } from "@/lib/db/client";
-import { runs, stages, type NewStage, type Run, type Stage } from "@/lib/db/schema";
+import { runs, stages, type Connection, type NewStage, type Run, type Stage } from "@/lib/db/schema";
 import { env } from "@/lib/env";
 import { getTemplate } from "@/lib/flow/templates";
 import { ROLES } from "@/lib/flow/roles";
 import { newRunId, newStageId } from "@/lib/ids";
-import { repoRefusalReason } from "@/lib/repos";
+import { repoRefusalFor } from "@/lib/connections";
 import { addMinutes } from "@/lib/time";
 
 // Plan §10 POST /api/runs and ADR-0001: a Run and its whole Template chain are created in one batch.
@@ -32,10 +32,11 @@ export class CreateRunError extends Error {
 }
 
 export type CreateRunExtras = { createdIp?: string | null; scheduleId?: string | null; againOfRunId?: string | null };
+export type Owner = Pick<Connection, "id" | "repoAllowlist" | "repoDenylist">;
 
 /** Pure: builds the Run row and its Stage rows without touching the DB (unit-testable). */
-export function buildRunRows(input: CreateRunInput, now: Date, extras: CreateRunExtras = {}): { run: typeof runs.$inferInsert; stageRows: NewStage[] } {
-  const refusal = repoRefusalReason(input.repo);
+export function buildRunRows(input: CreateRunInput, owner: Owner, now: Date, extras: CreateRunExtras = {}): { run: typeof runs.$inferInsert; stageRows: NewStage[] } {
+  const refusal = repoRefusalFor(owner, input.repo);
   if (refusal) throw new CreateRunError(refusal);
 
   const lead = input.deadline_at.getTime() - now.getTime();
@@ -48,6 +49,7 @@ export function buildRunRows(input: CreateRunInput, now: Date, extras: CreateRun
   const runId = newRunId();
   const run: typeof runs.$inferInsert = {
     id: runId,
+    connectionId: owner.id,
     goal: input.goal,
     repo: input.repo,
     templateId: template.id,
@@ -84,8 +86,8 @@ export function buildRunRows(input: CreateRunInput, now: Date, extras: CreateRun
   return { run, stageRows };
 }
 
-export async function createRun(input: CreateRunInput, extras: CreateRunExtras = {}, now = new Date()): Promise<{ run: Run; stages: Stage[] }> {
-  const { run, stageRows } = buildRunRows(input, now, extras);
+export async function createRun(input: CreateRunInput, owner: Owner, extras: CreateRunExtras = {}, now = new Date()): Promise<{ run: Run; stages: Stage[] }> {
+  const { run, stageRows } = buildRunRows(input, owner, now, extras);
   const [insertedRuns, insertedStages] = await db.batch([db.insert(runs).values(run).returning(), db.insert(stages).values(stageRows).returning()]);
   return { run: insertedRuns[0], stages: insertedStages.sort((a, b) => a.seq - b.seq) };
 }

@@ -3,13 +3,17 @@ import { Empty, Mono, PageTitle, RunPill } from "@/components/ui";
 import type { Run } from "@/lib/db/schema";
 import { acu, resultLine, shortDate, shortTime } from "@/lib/format";
 import { listRuns } from "@/lib/runs/queries";
+import { currentConnection } from "@/lib/connections";
+import { ConnectGate } from "@/components/connect-gate";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Inbox" };
 
 // §13.3: the morning screen. Needs-you above Ready; readable in ten seconds.
 export default async function InboxPage() {
-  const all = await listRuns(200);
+  const c = await currentConnection();
+  if (!c) return <ConnectGate what="Finished runs land here — what to merge first, then what needs a decision." />;
+  const all = await listRuns(c.id, 200);
   const needsYou = all.filter((r) => ["blocked", "failed", "partial"].includes(r.status));
   const ready = all.filter((r) => r.status === "complete");
   const inFlight = all.filter((r) => ["queued", "running"].includes(r.status)).length;

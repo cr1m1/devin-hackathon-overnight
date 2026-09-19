@@ -4,7 +4,7 @@
 
 Overnight runs multi-stage coding work unattended against a GitHub repository and leaves you, by morning, one readable report and one or more pull requests. You state a goal, pick a repository and a deadline, and close the laptop. Overnight materializes the goal as a chain of stages — `plan → implement → review → validate` — runs each stage as a separate **Devin Cloud session**, routes between stages on each stage's structured verdict (`ok` / `needs-work` / `blocked` / `complete`), inserts `amend` rounds when review finds problems, respects the wall-clock deadline and the ACU budget, and stops with an honest outcome.
 
-Live: **https://overnight-ashy.vercel.app** — no sign-in.
+Live: **https://overnight-ashy.vercel.app** — no account needed. **Bring your own Devin:** open Settings, paste your Devin organization id and a service-user API key; sessions run in *your* organization against repositories *your* Devin can reach. The key is verified once, stored encrypted (AES-256-GCM), and never shown again. Nothing is shared between users.
 
 Overnight never writes code itself. It is a stateless scheduler and bookkeeper over Devin sessions; all code work happens inside Devin.
 
@@ -29,7 +29,7 @@ Design docs: `docs/implementation-plan.md` (build spec), `CONTEXT.md` (glossary)
 
 ## Run it locally
 
-Requirements: Node ≥ 22, a Postgres URL (Neon free tier works), a Devin service-user API key and org id.
+Requirements: Node ≥ 22, a Postgres URL (Neon free tier works). Devin credentials are entered in the app (Settings), not in env.
 
 ```bash
 git clone https://github.com/cr1m1/devin-hackathon-overnight.git
@@ -45,15 +45,12 @@ npm run dev                       # http://localhost:3000
 | Variable | Required | Notes |
 |---|---|---|
 | `DATABASE_URL` | yes | Postgres connection string |
-| `DEVIN_API_KEY` | yes | Devin service-user key (`cog_…`) — Settings → Service users |
-| `DEVIN_ORG_ID` | yes | `org-…`, shown on the same page |
+| `ENCRYPTION_KEY` | yes | 32 bytes hex (`openssl rand -hex 32`) — encrypts stored Devin keys |
 | `CRON_SECRET` | prod | Shared secret for `/api/tick`; in dev it may be empty |
-| `REPO_ALLOWLIST` | no | Default `cr1m1/*` — globs of repositories runs may target |
-| `REPO_DENYLIST` | no | Default `Namadgi/*` — refused even if allowlisted |
 
-The first thing to click: **New run** → describe a goal → pick a repository (only allowlisted repos Devin can reach are listed) → **Start the run**. Then drive the scheduler once with `curl -H "Authorization: Bearer $CRON_SECRET" localhost:3000/api/tick` (or `?key=…`) — in production an external cron (cron-job.org) calls it every minute. The run page refreshes itself; **Inbox** is the morning screen.
+The first thing to click: **Settings → Connect Devin** (organization id + service-user key from Devin → Settings → Service users, Member role). Then **New run** → describe a goal → pick a repository (only repos your Devin can reach, filtered by your allow/deny rules) → **Start the run**. Then drive the scheduler once with `curl -H "Authorization: Bearer $CRON_SECRET" localhost:3000/api/tick` (or `?key=…`) — in production an external cron (cron-job.org) calls it every minute. The run page refreshes itself; **Inbox** is the morning screen.
 
-Note: to start real sessions, the Devin org behind the key must have the target repository connected in its GitHub integration, and the allowlist must include it. Sessions consume the org's ACUs (each stage carries a `max_acu_limit`).
+Note: the Devin org behind your key must have the target repository connected in its GitHub integration. Sessions consume that org's ACUs (each stage carries a `max_acu_limit`). Per-connection allow/deny rules (e.g. `personal/*` allowed, `work-org/*` denied) are edited in Settings.
 
 ```bash
 npm run lint && npm run typecheck && npm test   # 52 unit tests (routing, admission, poll mapping, prompt, schema, allowlist)
@@ -61,8 +58,8 @@ npm run lint && npm run typecheck && npm test   # 52 unit tests (routing, admiss
 
 ## Deploy
 
-Vercel (Hobby is enough) + Neon. Set the env vars above in Vercel; the build command `npm run db:migrate && npm run build` is in `vercel.json`. Vercel Hobby crons are daily, so create a cron-job.org job hitting `https://<app>/api/tick` every minute with header `Authorization: Bearer <CRON_SECRET>`.
+Vercel (Hobby is enough) + Neon. Set `DATABASE_URL`, `ENCRYPTION_KEY`, `CRON_SECRET` in Vercel; the build command `npm run db:migrate && npm run build` is in `vercel.json`. Vercel Hobby crons are daily, so create a cron-job.org job hitting `https://<app>/api/tick` every minute with header `Authorization: Bearer <CRON_SECRET>`.
 
 ## Status
 
-Built during the Budapest hackathon. Shipped: run creation with repository picker, full stage chain with data-declared routing and `amend` insertion, deadline and budget admission, nudge + grace, tag reconciliation, deterministic reports, Inbox, Settings with health. Not yet: recurring schedules UI, cancel of an in-flight session (archive), workspaces.
+Built during the Budapest hackathon. Shipped: bring-your-own Devin connections (encrypted at rest, per-connection repo rules), run creation with repository picker, full stage chain with data-declared routing and `amend` insertion, deadline and budget admission, nudge + grace, tag reconciliation, deterministic reports, Inbox, Settings with health. Cancel archives the in-flight session. Not yet: recurring schedules UI, multiple connections per browser.
