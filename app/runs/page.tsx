@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { Empty, LinkButton, Mono, PageTitle, RunPill } from "@/components/ui";
 import { relative, resultLine, shortDate, shortTime } from "@/lib/format";
-import { listRuns } from "@/lib/runs/queries";
+import { listRunsWithChain } from "@/lib/runs/queries";
+import { ChainDots } from "@/components/sky";
 import { currentConnection } from "@/lib/connections";
 import { ConnectGate } from "@/components/connect-gate";
 
@@ -11,7 +12,7 @@ export const metadata = { title: "Runs" };
 export default async function RunsPage() {
   const c = await currentConnection();
   if (!c) return <ConnectGate what="Your runs appear here once connected." />;
-  const runs = await listRuns(c.id, 100);
+  const runs = await listRunsWithChain(c.id, 100);
   return (
     <div>
       <PageTitle aside={<LinkButton href="/">New run</LinkButton>}>Runs</PageTitle>
@@ -27,7 +28,8 @@ export default async function RunsPage() {
                   <RunPill status={r.status} />
                 </div>
                 <p className="text-sm text-ink-2 mt-1">{resultLine(r)}</p>
-                <p className="mt-1.5 flex flex-wrap gap-x-4">
+                <p className="mt-1.5 flex flex-wrap items-center gap-x-4">
+                  <ChainDots statuses={r.chain.map((x) => x.status)} verdicts={r.chain.map((x) => x.verdict)} />
                   <Mono>{r.repo}</Mono>
                   <Mono>
                     {shortDate(r.createdAt)} {shortTime(r.createdAt)}

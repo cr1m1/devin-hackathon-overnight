@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { Empty, Mono, PageTitle, RunPill } from "@/components/ui";
-import type { Run } from "@/lib/db/schema";
+import type { RunWithChain } from "@/lib/runs/queries";
 import { acu, resultLine, shortDate, shortTime } from "@/lib/format";
-import { listRuns } from "@/lib/runs/queries";
+import { listRunsWithChain } from "@/lib/runs/queries";
+import { ChainDots } from "@/components/sky";
 import { currentConnection } from "@/lib/connections";
 import { ConnectGate } from "@/components/connect-gate";
 
@@ -13,7 +14,7 @@ export const metadata = { title: "Inbox" };
 export default async function InboxPage() {
   const c = await currentConnection();
   if (!c) return <ConnectGate what="Finished runs land here — what to merge first, then what needs a decision." />;
-  const all = await listRuns(c.id, 200);
+  const all = await listRunsWithChain(c.id, 200);
   const needsYou = all.filter((r) => ["blocked", "failed", "partial"].includes(r.status));
   const ready = all.filter((r) => r.status === "complete");
   const inFlight = all.filter((r) => ["queued", "running"].includes(r.status)).length;
@@ -33,7 +34,7 @@ export default async function InboxPage() {
   );
 }
 
-function Section({ title, runs, empty }: { title: string; runs: Run[]; empty: string }) {
+function Section({ title, runs, empty }: { title: string; runs: RunWithChain[]; empty: string }) {
   return (
     <section>
       <h2 className="text-sm font-medium text-ink-3 mb-2">{title}</h2>
@@ -49,7 +50,8 @@ function Section({ title, runs, empty }: { title: string; runs: Run[]; empty: st
                   <RunPill status={r.status} />
                 </div>
                 <p className="text-sm text-ink-2 mt-1">{resultLine(r)}</p>
-                <p className="mt-1.5 flex flex-wrap gap-x-4">
+                <p className="mt-1.5 flex flex-wrap items-center gap-x-4">
+                  <ChainDots statuses={r.chain.map((x) => x.status)} verdicts={r.chain.map((x) => x.verdict)} />
                   <Mono>{r.repo}</Mono>
                   <Mono>
                     finished {shortDate(r.updatedAt)} {shortTime(r.updatedAt)}

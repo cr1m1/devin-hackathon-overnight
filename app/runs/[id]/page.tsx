@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { RunActions } from "@/components/run-actions";
 import { StageTimeline } from "@/components/stage-timeline";
+import { NightStrip } from "@/components/night-strip";
+import { Sky } from "@/components/sky";
 import { Mono, RunPill } from "@/components/ui";
 import { TERMINAL_RUN_STATUSES } from "@/lib/db/schema";
 import { acu, relative, resultLine, shortDate, shortTime } from "@/lib/format";
@@ -24,11 +26,17 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
       {!terminal && <AutoRefresh everyMs={10_000} />}
 
       <header className="mb-8">
-        <div className="flex items-start justify-between gap-4">
-          <h1 className="text-lg font-semibold leading-snug">{run.goal}</h1>
-          <RunPill status={run.status} />
+        <div className="flex items-start gap-4">
+          <Sky status={run.status} className="w-12 h-12 -mt-1" />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start justify-between gap-4">
+              <h1 className="text-lg font-semibold leading-snug">{run.goal}</h1>
+              <RunPill status={run.status} />
+            </div>
+            <p className="mt-2 text-ink-2">{resultLine(run)}</p>
+          </div>
         </div>
-        <p className="mt-2 text-ink-2">{resultLine(run)}</p>
+        <NightStrip run={run} stages={stages} />
         <dl className="mt-4 grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 text-sm">
           <dt className="text-ink-3">Repository</dt>
           <dd>

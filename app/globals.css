@@ -138,3 +138,17 @@ h3 {
   padding: 0.3em 0.6em;
   text-align: left;
 }
+
+/* Night strip: the working bar breathes with the same rhythm as the running dot. */
+@keyframes pulse-bar {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+.pulse-bar {
+  animation: pulse-bar 1.8s ease-in-out infinite;
+}
