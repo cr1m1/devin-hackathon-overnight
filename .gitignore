@@ -11,6 +11,7 @@ next-env.d.ts
 # env / secrets — never committed
 .env
 .env.*
+!.env.example
 .neon
 
 # vercel
@@ -23,4 +24,3 @@ next-env.d.ts
 .DS_Store
 *.pem
 npm-debug.log*
-.env*
