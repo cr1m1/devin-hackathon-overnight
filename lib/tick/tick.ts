@@ -1,6 +1,7 @@
 import type { Db } from "@/lib/db/client";
 import { env } from "@/lib/env";
 import { acquireLease, recordResult } from "./lease";
+import { admitPhase, pollPhase, reconcilePhase } from "./phases";
 
 // Plan §11. M1 ships the guard and the phase skeleton; phases fill in over M2–M5.
 // Every phase is a function of (db, now) with no module-level state (§2.1).
@@ -29,10 +30,10 @@ export type TickContext = {
 const PHASE_BUDGET_MS = 20_000;
 
 export const phases: Phase[] = [
-  { name: "poll", run: async () => {} },
-  { name: "reconcile", run: async () => {} },
-  { name: "route", run: async () => {} },
-  { name: "admit", run: async () => {} },
+  { name: "poll", run: pollPhase },
+  { name: "reconcile", run: reconcilePhase },
+  { name: "route", run: async () => {} }, // M3
+  { name: "admit", run: admitPhase },
   { name: "schedules", run: async () => {} },
 ];
 
