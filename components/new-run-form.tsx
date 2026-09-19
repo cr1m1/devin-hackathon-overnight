@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import clsx from "clsx";
 import { Button } from "./ui";
 import type { RepoOption } from "@/lib/devin/repos";
+import { ROLE_COLOR } from "@/lib/flow/role-colors";
+import type { StageRole } from "@/lib/db/schema";
 
 function defaultDeadline(): string {
   const d = new Date();
@@ -71,8 +73,14 @@ export function NewRunForm({ chain }: { chain: string[] }) {
 
       <div className="pt-2 border-t border-rule">
         <p className="text-xs text-ink-3 mb-4">
-          Will run <span className="text-ink-2">{chain.join(" → ")}</span>. Review may insert <span className="text-ink-2">Amend</span> rounds. Each stage is a separate Devin
-          session.
+          Will run{" "}
+          {chain.map((t, i) => (
+            <span key={t}>
+              <span className={`font-medium ${ROLE_COLOR[t.toLowerCase() as StageRole].text}`}>{t}</span>
+              {i < chain.length - 1 ? " → " : ""}
+            </span>
+          ))}
+          . Review may insert <span className={`font-medium ${ROLE_COLOR.amend.text}`}>Amend</span> rounds. Each stage is a separate Devin session.
         </p>
         {error && <p className="text-sm text-bad mb-3">{error}</p>}
         <Button type="submit" disabled={submitting || !repo || goal.trim().length < 8}>

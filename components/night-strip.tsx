@@ -1,6 +1,7 @@
 import type { Run, Stage } from "@/lib/db/schema";
 import { ROLES } from "@/lib/flow/roles";
 import { env } from "@/lib/env";
+import { ROLE_COLOR } from "@/lib/flow/role-colors";
 
 // A time map of the night: created → deadline (+ grace), each Stage as a bar where it actually ran,
 // an amber "now" marker. Pure SVG, server-rendered, scales with the container.
@@ -9,14 +10,12 @@ const W = 640;
 const H = 26 + 14; // bar area + axis
 const PAD = 2;
 
-const barClass: Record<Stage["status"], string> = {
-  pending: "fill-rule",
-  starting: "fill-accent/60",
-  running: "fill-accent",
-  done: "fill-ink",
-  failed: "fill-bad",
-  skipped: "fill-rule",
-};
+function barClass(s: Stage): string {
+  if (s.status === "failed") return "fill-bad";
+  if (s.status === "skipped" || s.status === "pending") return "fill-rule";
+  const role = ROLE_COLOR[s.role].fill;
+  return s.status === "running" || s.status === "starting" ? `${role} pulse-bar` : role;
+}
 
 export function NightStrip({ run, stages, now = new Date() }: { run: Run; stages: Stage[]; now?: Date }) {
   const start = run.createdAt.getTime();
@@ -54,7 +53,7 @@ export function NightStrip({ run, stages, now = new Date() }: { run: Run; stages
           const w = Math.max(3, s1 - s0);
           return (
             <g key={s.id}>
-              <rect x={s0} y={7} width={w} height={14} rx={2} className={barClass[s.status] + (s.status === "running" ? " pulse-bar" : "")} />
+              <rect x={s0} y={7} width={w} height={14} rx={2} className={barClass(s)} />
               {w > 46 && (
                 <text x={s0 + 5} y={17.5} className="fill-paper font-mono" fontSize="9">
                   {ROLES[s.role].title}
@@ -84,18 +83,20 @@ export function NightStrip({ run, stages, now = new Date() }: { run: Run; stages
           </g>
         ))}
       </svg>
-      <figcaption className="mt-1 flex flex-wrap gap-x-4 text-xs text-ink-3">
-        <span>
-          <i className="inline-block w-2 h-2 rounded-sm bg-ink align-middle mr-1.5" />
-          done
-        </span>
-        <span>
-          <i className="inline-block w-2 h-2 rounded-sm bg-accent align-middle mr-1.5" />
-          working
-        </span>
+      <figcaption className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-3">
+        {(Object.keys(ROLE_COLOR) as (keyof typeof ROLE_COLOR)[]).map((r) => (
+          <span key={r}>
+            <i className={`inline-block w-2 h-2 rounded-sm align-middle mr-1.5 ${ROLE_COLOR[r].bg}`} />
+            {ROLES[r].title.toLowerCase()}
+          </span>
+        ))}
         <span>
           <i className="inline-block w-2 h-2 rounded-sm bg-bad align-middle mr-1.5" />
           failed
+        </span>
+        <span>
+          <i className="inline-block w-3 h-0 border-t border-accent align-middle mr-1.5" />
+          now
         </span>
         <span>
           <i className="inline-block w-3 h-0 border-t border-dashed border-bad align-middle mr-1.5" />

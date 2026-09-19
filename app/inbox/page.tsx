@@ -51,7 +51,7 @@ function Section({ title, runs, empty }: { title: string; runs: RunWithChain[]; 
                 </div>
                 <p className="text-sm text-ink-2 mt-1">{resultLine(r)}</p>
                 <p className="mt-1.5 flex flex-wrap items-center gap-x-4">
-                  <ChainDots statuses={r.chain.map((x) => x.status)} verdicts={r.chain.map((x) => x.verdict)} />
+                  <ChainDots statuses={r.chain.map((x) => x.status)} verdicts={r.chain.map((x) => x.verdict)} roles={r.chain.map((x) => x.role)} />
                   <Mono>{r.repo}</Mono>
                   <Mono>
                     finished {shortDate(r.updatedAt)} {shortTime(r.updatedAt)}

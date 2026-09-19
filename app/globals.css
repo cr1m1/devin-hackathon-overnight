@@ -18,6 +18,12 @@
   --bad: #a3271f;
   --bad-bg: #fbe4e1;
   --mute-bg: #ecebe7;
+  /* one hue per Role — the only colour that is not status */
+  --role-plan: #3b5bdb;
+  --role-implement: #0f7b6c;
+  --role-review: #7048c8;
+  --role-amend: #c2417d;
+  --role-validate: #2f8f4e;
 }
 
 @theme inline {
@@ -36,6 +42,11 @@
   --color-bad: var(--bad);
   --color-bad-bg: var(--bad-bg);
   --color-mute-bg: var(--mute-bg);
+  --color-role-plan: var(--role-plan);
+  --color-role-implement: var(--role-implement);
+  --color-role-review: var(--role-review);
+  --color-role-amend: var(--role-amend);
+  --color-role-validate: var(--role-validate);
   --font-sans: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-mono), ui-monospace, "SF Mono", Menlo, monospace;
   --text-xs: 13px;

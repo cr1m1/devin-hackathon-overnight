@@ -1,5 +1,6 @@
 import clsx from "clsx";
-import type { RunStatus } from "@/lib/db/schema";
+import type { RunStatus, StageRole } from "@/lib/db/schema";
+import { ROLE_COLOR } from "@/lib/flow/role-colors";
 
 // The one piece of iconography in the app: where the night is. Moon while working, sun when the
 // morning delivered, a clouded moon when it needs a human. Stroke icons, no fills beyond the disc.
@@ -59,22 +60,25 @@ export function Sky({ status, className }: { status: RunStatus; className?: stri
 }
 
 /** Compact chain for list rows: one dot per stage in seq order. */
-export function ChainDots({ statuses, verdicts }: { statuses: string[]; verdicts: (string | null)[] }) {
+export function ChainDots({ statuses, verdicts, roles }: { statuses: string[]; verdicts: (string | null)[]; roles: StageRole[] }) {
   return (
-    <span className="inline-flex items-center gap-1 align-middle" aria-label={`Stages: ${statuses.join(", ")}`}>
+    <span className="inline-flex items-center gap-1 align-middle" aria-label={`Stages: ${statuses.map((s, i) => `${roles[i]} ${s}`).join(", ")}`}>
       {statuses.map((s, i) => {
         const v = verdicts[i];
+        const role = ROLE_COLOR[roles[i]];
         const cls =
-          s === "done" && (v === "ok" || v === "complete")
-            ? "bg-ink"
+          s === "failed" || (s === "done" && v === "blocked")
+            ? "bg-bad"
             : s === "done" && v === "needs-work"
-              ? "bg-warn"
-              : s === "done" || s === "failed"
-                ? "bg-bad"
+              ? `${role.bg} ring-2 ring-warn/60`
+              : s === "done"
+                ? role.bg
                 : s === "running" || s === "starting"
-                  ? "bg-accent pulse"
-                  : "border border-rule bg-paper";
-        return <i key={i} className={clsx("inline-block w-2 h-2 rounded-full", cls)} />;
+                  ? `${role.bg} pulse`
+                  : s === "skipped"
+                    ? "border border-rule bg-paper"
+                    : `border ${role.border} bg-paper opacity-60`;
+        return <i key={i} title={`${roles[i]}: ${s}${v ? ` (${v})` : ""}`} className={clsx("inline-block w-2 h-2 rounded-full", cls)} />;
       })}
     </span>
   );

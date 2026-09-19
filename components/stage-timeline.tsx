@@ -4,6 +4,7 @@ import remarkGfm from "remark-gfm";
 import { Mono, StagePill } from "./ui";
 import type { RunStatus, Stage } from "@/lib/db/schema";
 import { ROLES } from "@/lib/flow/roles";
+import { ROLE_COLOR } from "@/lib/flow/role-colors";
 import { acu, formatDurationBetween, shortTime } from "@/lib/format";
 
 // §13.2: the whole chain, including pending (grey) and skipped (struck) rows, on a visible spine.
@@ -25,17 +26,18 @@ export function StageTimeline({ stages, runStatus }: { stages: Stage[]; runStatu
               <span
                 className={clsx(
                   "mt-[7px] block h-[10px] w-[10px] rounded-full border-2 z-10",
-                  live && "bg-accent border-accent pulse",
-                  s.status === "done" && "bg-ink border-ink",
+                  live && `${ROLE_COLOR[s.role].bg} ${ROLE_COLOR[s.role].border} pulse`,
+                  s.status === "done" && `${ROLE_COLOR[s.role].bg} ${ROLE_COLOR[s.role].border}`,
                   s.status === "failed" && "bg-bad border-bad",
-                  (pending || skipped) && "bg-paper border-rule",
+                  pending && `bg-paper ${ROLE_COLOR[s.role].border} opacity-70`,
+                  skipped && "bg-paper border-rule",
                 )}
               />
               {!last && <span className="absolute top-[17px] bottom-[-4px] w-px bg-rule" />}
             </div>
             <div className={clsx("pb-6 min-w-0", pending && "opacity-60")}>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                <span className={clsx("font-medium", skipped && "line-through text-ink-3")}>{ROLES[s.role].title}</span>
+                <span className={clsx("font-medium", skipped ? "line-through text-ink-3" : ROLE_COLOR[s.role].text)}>{ROLES[s.role].title}</span>
                 <StagePill verdict={s.verdict} status={s.status} />
                 {s.origin === "edge" && <Mono>inserted</Mono>}
                 {s.acusConsumed !== null && <Mono>{acu(s.acusConsumed)}</Mono>}

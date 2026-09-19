@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { runs, stages, type Run, type Stage } from "@/lib/db/schema";
+import { runs, stages, type Run, type Stage, type StageRole } from "@/lib/db/schema";
 
 /** A run is only visible to the connection that owns it. */
 export async function getRunWithStages(id: string, connectionId: string | null): Promise<{ run: Run; stages: Stage[] } | null> {
@@ -19,7 +19,7 @@ export function listRuns(connectionId: string | null, limit = 50): Promise<Run[]
   return db.select().from(runs).where(eq(runs.connectionId, connectionId)).orderBy(desc(runs.createdAt)).limit(limit);
 }
 
-export type RunWithChain = Run & { chain: { status: string; verdict: string | null }[] };
+export type RunWithChain = Run & { chain: { role: StageRole; status: string; verdict: string | null }[] };
 
 /** Runs plus a compact stage chain for list rows. */
 export async function listRunsWithChain(connectionId: string | null, limit = 50): Promise<RunWithChain[]> {
@@ -27,9 +27,9 @@ export async function listRunsWithChain(connectionId: string | null, limit = 50)
   if (rows.length === 0) return [];
   const ids = rows.map((r) => r.id);
   const st = await db
-    .select({ runId: stages.runId, status: stages.status, verdict: stages.verdict, seq: stages.seq })
+    .select({ runId: stages.runId, role: stages.role, status: stages.status, verdict: stages.verdict, seq: stages.seq })
     .from(stages)
     .where(inArray(stages.runId, ids))
     .orderBy(asc(stages.seq));
-  return rows.map((r) => ({ ...r, chain: st.filter((s) => s.runId === r.id).map((s) => ({ status: s.status, verdict: s.verdict })) }));
+  return rows.map((r) => ({ ...r, chain: st.filter((s) => s.runId === r.id).map((s) => ({ role: s.role, status: s.status, verdict: s.verdict })) }));
 }
