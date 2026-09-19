@@ -1,0 +1,140 @@
+@import "tailwindcss";
+
+/* Design brief §13.0: warm near-black on off-white, three greys, one amber accent,
+   status colours only on pills. No gradients, no shadows heavier than a 1px border. */
+:root {
+  --paper: #faf9f6;
+  --paper-2: #f3f1ec;
+  --ink: #111110;
+  --ink-2: #4b4844;
+  --ink-3: #8a857d;
+  --rule: #e4e0d8;
+  --accent: #b45309;
+  --accent-ink: #7c3a06;
+  --ok: #1f6f43;
+  --ok-bg: #e5f2ea;
+  --warn: #9a5b00;
+  --warn-bg: #fbeed2;
+  --bad: #a3271f;
+  --bad-bg: #fbe4e1;
+  --mute-bg: #ecebe7;
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-paper-2: var(--paper-2);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-rule: var(--rule);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-ok: var(--ok);
+  --color-ok-bg: var(--ok-bg);
+  --color-warn: var(--warn);
+  --color-warn-bg: var(--warn-bg);
+  --color-bad: var(--bad);
+  --color-bad-bg: var(--bad-bg);
+  --color-mute-bg: var(--mute-bg);
+  --font-sans: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-mono), ui-monospace, "SF Mono", Menlo, monospace;
+  --text-xs: 13px;
+  --text-sm: 15px;
+  --text-base: 17px;
+  --text-lg: 22px;
+  --text-xl: 28px;
+}
+
+html {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3 {
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+::selection {
+  background: #f1d6b8;
+}
+
+/* Running-stage pulse: the only motion besides 150ms fades. */
+@keyframes pulse-dot {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(180, 83, 9, 0.45);
+  }
+  70% {
+    box-shadow: 0 0 0 7px rgba(180, 83, 9, 0);
+  }
+}
+.pulse {
+  animation: pulse-dot 1.8s ease-out infinite;
+}
+
+/* Markdown reports */
+.report :is(h1, h2, h3) {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  margin: 1.2em 0 0.4em;
+  color: var(--ink);
+}
+.report p,
+.report li {
+  color: var(--ink-2);
+  font-size: var(--text-sm);
+}
+.report ul,
+.report ol {
+  padding-left: 1.2em;
+  margin: 0.4em 0;
+}
+.report ul {
+  list-style: disc;
+}
+.report ol {
+  list-style: decimal;
+}
+.report code {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  background: var(--paper-2);
+  padding: 0.1em 0.35em;
+  border-radius: 3px;
+}
+.report pre {
+  background: var(--paper-2);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  padding: 0.8em 1em;
+  overflow-x: auto;
+  margin: 0.6em 0;
+}
+.report pre code {
+  background: none;
+  padding: 0;
+}
+.report a {
+  color: var(--accent-ink);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.report table {
+  border-collapse: collapse;
+  font-size: 13px;
+  margin: 0.6em 0;
+}
+.report th,
+.report td {
+  border: 1px solid var(--rule);
+  padding: 0.3em 0.6em;
+  text-align: left;
+}
