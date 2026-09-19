@@ -13,8 +13,7 @@ import { terminateRun } from "./terminate";
 import type { TickContext } from "./tick";
 import { addMinutes, isoUtc } from "@/lib/time";
 
-// Plan §11.1, §11.2, §11.4 and §12.5. Phase 3 (routing) lands in M3; until then a finished
-// acceptance-less chain simply proceeds by gate order and terminal verdicts end the Run.
+// Plan §11.1, §11.2, §11.4 and §12.5. Phase 3 (routing) lives in routing.ts.
 
 const ORPHAN_AFTER_MS = 90_000;
 const OVERRUN_NUDGE = 3;
@@ -233,17 +232,10 @@ export async function admitPhase({ db, now, result, deadline }: TickContext): Pr
   for (const run of candidates) {
     if (result.started >= env.tickMaxStarts || Date.now() > deadline) break;
     const stageRows = await db.select().from(stages).where(eq(stages.runId, run.id)).orderBy(asc(stages.seq));
-    if (stageRows.some((s) => s.status === "failed" && !s.verdictSeenAt)) continue; // M3 routing decides; skip for now
+    // Routing (Phase 3) must act on every finished Stage before anything new is admitted.
+    if (stageRows.some((s) => (s.status === "done" || s.status === "failed") && !s.verdictSeenAt)) continue;
     const next = nextAdmissible(stageRows);
-    if (!next) {
-      if (stageRows.every((s) => s.status === "done" || s.status === "skipped") && stageRows.length > 0) {
-        // Chain exhausted without routing having terminated it (pre-M3 safety net).
-        const last = [...stageRows].reverse().find((s) => s.status === "done");
-        const status = last?.verdict === "complete" ? "complete" : outcomeWithoutAcceptance(run);
-        await terminateRun(db, run, status, last?.verdict === "complete" ? "all acceptance criteria passed" : `chain ended with ${last?.role} → ${last?.verdict}`, now);
-      }
-      continue;
-    }
+    if (!next) continue;
 
     const decision = admit(run, next.role, now, limits);
     if (decision.kind === "skip") continue;

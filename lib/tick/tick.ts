@@ -2,6 +2,7 @@ import type { Db } from "@/lib/db/client";
 import { env } from "@/lib/env";
 import { acquireLease, recordResult } from "./lease";
 import { admitPhase, pollPhase, reconcilePhase } from "./phases";
+import { routePhase } from "./routing";
 
 // Plan §11. M1 ships the guard and the phase skeleton; phases fill in over M2–M5.
 // Every phase is a function of (db, now) with no module-level state (§2.1).
@@ -32,7 +33,7 @@ const PHASE_BUDGET_MS = 20_000;
 export const phases: Phase[] = [
   { name: "poll", run: pollPhase },
   { name: "reconcile", run: reconcilePhase },
-  { name: "route", run: async () => {} }, // M3
+  { name: "route", run: routePhase },
   { name: "admit", run: admitPhase },
   { name: "schedules", run: async () => {} },
 ];
