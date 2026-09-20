@@ -3,15 +3,19 @@
 
 export type CriterionResult = "pass" | "fail" | "unknown";
 
-const VERDICT_LINE = /^\s*(?:[-*]\s*)?(?:\[[ xX]\]\s*)?(?:\*\*)?(?:(\d+)[.):]\s*(?:\*\*)?\s*)?(PASS|FAIL)\b/i;
+// Upper-case only: "Pass the flag to …" in prose is not a verdict.
+const LINE_START = String.raw`^\s*(?:[-*]\s*)?(?:\[[ xX]\]\s*)?(?:\*\*)?(?:(\d+)[.):]\s*(?:\*\*)?\s*)?`;
+const LEADING_VERDICT = new RegExp(LINE_START + String.raw`(PASS|FAIL)\b`);
+// "1. **Endpoint returns 200** — PASS" / "Criterion 2: FAIL."
+const TRAILING_VERDICT = new RegExp(LINE_START + String.raw`.*?(?:[—–:-]|\s)\s*(?:\*\*)?(PASS|FAIL)(?:\*\*)?\s*[.!]?\s*$`);
 
 /** Ordered PASS/FAIL verdicts found in a validate report, with an explicit criterion number when the line carries one. */
 export function parseVerdictLines(reportMd: string): { index: number | null; result: "pass" | "fail" }[] {
   const out: { index: number | null; result: "pass" | "fail" }[] = [];
   for (const line of reportMd.split(/\r?\n/)) {
-    const m = VERDICT_LINE.exec(line);
+    const m = LEADING_VERDICT.exec(line) ?? TRAILING_VERDICT.exec(line);
     if (!m) continue;
-    out.push({ index: m[1] ? Number(m[1]) - 1 : null, result: m[2].toUpperCase() === "PASS" ? "pass" : "fail" });
+    out.push({ index: m[1] ? Number(m[1]) - 1 : null, result: m[2] === "PASS" ? "pass" : "fail" });
   }
   return out;
 }

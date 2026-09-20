@@ -26,6 +26,16 @@ describe("parseVerdictLines", () => {
       { index: 1, result: "fail" },
     ]);
   });
+  it("accepts a trailing verdict after the criterion text", () => {
+    expect(parseVerdictLines("1. **Endpoint returns 200** — PASS\n2. Settings list refreshes: FAIL.\n- README updated - **PASS**")).toEqual([
+      { index: 0, result: "pass" },
+      { index: 1, result: "fail" },
+      { index: null, result: "pass" },
+    ]);
+  });
+  it("is case-sensitive so prose starting with 'Pass' or ending in 'fail' is not a verdict", () => {
+    expect(parseVerdictLines("Pass the flag to the CLI.\nFail fast on errors.\nThis will otherwise fail\nwe expect it to pass.")).toEqual([]);
+  });
 });
 
 describe("criteriaResults", () => {
