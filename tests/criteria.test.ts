@@ -36,6 +36,9 @@ describe("parseVerdictLines", () => {
   it("is case-sensitive so prose starting with 'Pass' or ending in 'fail' is not a verdict", () => {
     expect(parseVerdictLines("Pass the flag to the CLI.\nFail fast on errors.\nThis will otherwise fail\nwe expect it to pass.")).toEqual([]);
   });
+  it("requires a list line and separator for trailing verdicts", () => {
+    expect(parseVerdictLines("All unit tests PASS\n**Verdict:** FAIL\nThe endpoint did not FAIL\nOverall: FAIL")).toEqual([]);
+  });
 });
 
 describe("criteriaResults", () => {
@@ -47,6 +50,10 @@ describe("criteriaResults", () => {
   });
   it("mixes numbered and unnumbered lines without double-counting", () => {
     expect(criteriaResults(CRITERIA, "2. FAIL b\nPASS a\nPASS c\nPASS extra")).toEqual(["pass", "fail", "pass"]);
+  });
+  it("does not spill out-of-range numbered lines into unnumbered criteria", () => {
+    expect(criteriaResults(["a", "b"], "Overall: FAIL\n1. PASS")).toEqual(["pass", "unknown"]);
+    expect(criteriaResults(["a", "b", "c"], "7. FAIL\n1. PASS")).toEqual(["pass", "unknown", "unknown"]);
   });
   it("is all unknown without a report", () => {
     expect(criteriaResults(CRITERIA, null)).toEqual(["unknown", "unknown", "unknown"]);

@@ -7,7 +7,8 @@ export type CriterionResult = "pass" | "fail" | "unknown";
 const LINE_START = String.raw`^\s*(?:[-*]\s*)?(?:\[[ xX]\]\s*)?(?:\*\*)?(?:(\d+)[.):]\s*(?:\*\*)?\s*)?`;
 const LEADING_VERDICT = new RegExp(LINE_START + String.raw`(PASS|FAIL)\b`);
 // "1. **Endpoint returns 200** — PASS" / "Criterion 2: FAIL."
-const TRAILING_VERDICT = new RegExp(LINE_START + String.raw`.*?(?:[—–:-]|\s)\s*(?:\*\*)?(PASS|FAIL)(?:\*\*)?\s*[.!]?\s*$`);
+const LIST_START = String.raw`^\s*(?:(?:[-*]\s*)(?:\[[ xX]\]\s*)?|(?:\*\*)?(\d+)[.):]\s*(?:\*\*)?\s*)`;
+const TRAILING_VERDICT = new RegExp(LIST_START + String.raw`.*?(?:[—–:-]\s*(?:\*\*)?|\*\*)(PASS|FAIL)(?:\*\*)?\s*[.!]?\s*$`);
 
 /** Ordered PASS/FAIL verdicts found in a validate report, with an explicit criterion number when the line carries one. */
 export function parseVerdictLines(reportMd: string): { index: number | null; result: "pass" | "fail" }[] {
@@ -31,7 +32,7 @@ export function criteriaResults(criteria: readonly string[], reportMd: string | 
   for (const l of lines) if (l.index !== null && l.index >= 0 && l.index < results.length && results[l.index] === "unknown") results[l.index] = l.result;
   let cursor = 0;
   for (const l of lines) {
-    if (l.index !== null && l.index >= 0 && l.index < results.length) continue;
+    if (l.index !== null) continue;
     while (cursor < results.length && results[cursor] !== "unknown") cursor++;
     if (cursor >= results.length) break;
     results[cursor++] = l.result;
