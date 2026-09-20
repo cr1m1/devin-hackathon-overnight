@@ -9,8 +9,15 @@ import { TERMINAL_RUN_STATUSES } from "@/lib/db/schema";
 import { acu, relative, resultLine, shortDate, shortTime } from "@/lib/format";
 import { getRunWithStages } from "@/lib/runs/queries";
 import { currentConnection } from "@/lib/connections";
+import { criteriaResults, passedCount, type CriterionResult } from "@/lib/flow/criteria";
 
 export const dynamic = "force-dynamic";
+
+const MARK: Record<CriterionResult, { label: string; className: string; title: string }> = {
+  pass: { label: "PASS", className: "text-ok", title: "Reported PASS by the latest validate stage" },
+  fail: { label: "FAIL", className: "text-bad", title: "Reported FAIL by the latest validate stage" },
+  unknown: { label: "—", className: "text-ink-3", title: "Not yet validated" },
+};
 
 export default async function RunPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -20,6 +27,8 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
   const { run, stages, scheduleName } = data;
   const terminal = TERMINAL_RUN_STATUSES.includes(run.status);
   const blocking = run.status === "blocked" ? stages.find((s) => s.verdict === "blocked") : undefined;
+  const validate = [...stages].reverse().find((s) => s.role === "validate" && s.status === "done" && s.reportMd);
+  const results = criteriaResults(run.acceptanceCriteria ?? [], validate?.reportMd);
 
   return (
     <div>
@@ -91,11 +100,22 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
 
       {run.acceptanceCriteria && run.acceptanceCriteria.length > 0 && (
         <section className="mb-8">
-          <h2 className="text-sm font-medium mb-2">Acceptance criteria</h2>
+          <h2 className="text-sm font-medium mb-2">
+            Acceptance criteria
+            {validate && (
+              <span className="text-ink-3 font-normal">
+                {" "}
+                · {passedCount(results)} passed / {run.acceptanceCriteria.length}
+              </span>
+            )}
+          </h2>
           <ul className="space-y-1">
             {run.acceptanceCriteria.map((c, i) => (
               <li key={i} className="text-sm text-ink-2 flex gap-2">
                 <span className="text-ink-3 font-mono text-xs pt-[3px]">{String(i + 1).padStart(2, "0")}</span>
+                <span className={`font-mono text-xs pt-[3px] w-8 shrink-0 ${MARK[results[i]].className}`} title={MARK[results[i]].title}>
+                  {MARK[results[i]].label}
+                </span>
                 <span>{c}</span>
               </li>
             ))}
