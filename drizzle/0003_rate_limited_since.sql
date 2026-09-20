@@ -1,0 +1,1 @@
+ALTER TABLE "stages" ADD COLUMN "rate_limited_since" timestamp with time zone;

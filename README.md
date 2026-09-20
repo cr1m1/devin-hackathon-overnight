@@ -48,6 +48,7 @@ npm run dev                       # http://localhost:3000
 | `DATABASE_URL` | yes | Postgres connection string |
 | `ENCRYPTION_KEY` | yes | 32 bytes hex (`openssl rand -hex 32`) — encrypts stored Devin keys |
 | `CRON_SECRET` | prod | Shared secret for `/api/tick`; in dev it may be empty |
+| `DEMO_MODE` | no | `true` shows the demo banner and limits `POST /api/runs` (and Run again) to one run per 10 minutes per client address (429) |
 
 The first thing to click: **Settings → Connect Devin** (organization id + service-user key from Devin → Settings → Service users, Member role). Then **New run** → describe a goal → pick a repository (only repos your Devin can reach, filtered by your allow/deny rules) → **Start the run**. Then drive the scheduler once with `curl -H "Authorization: Bearer $CRON_SECRET" localhost:3000/api/tick` (or `?key=…`) — in production an external cron (cron-job.org) calls it every minute. The run page refreshes itself; **Inbox** is the morning screen.
 
