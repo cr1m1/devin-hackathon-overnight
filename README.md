@@ -55,7 +55,7 @@ The first thing to click: **Settings → Connect Devin** (organization id + serv
 Note: the Devin org behind your key must have the target repository connected in its GitHub integration. Sessions consume that org's ACUs (each stage carries a `max_acu_limit`). Per-connection allow/deny rules (e.g. `personal/*` allowed, `work-org/*` denied) are edited in Settings.
 
 ```bash
-npm run lint && npm run typecheck && npm test   # unit tests (routing, admission, poll mapping, prompt, schema, allowlist, schedules)
+npm run lint && npm run typecheck && npm test   # unit tests; tests/tick.test.ts (fake Devin + real Postgres) runs only with TEST_DATABASE_URL set to a Neon branch
 ```
 
 ## Deploy
