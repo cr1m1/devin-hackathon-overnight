@@ -1,6 +1,7 @@
 import { neonConfig } from "@neondatabase/serverless";
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { localParts, nextDeadline } from "@/lib/schedules/time";
 import { FakeDevin } from "./fake-devin/server";
 
 // Plan §16.3. Needs a real Postgres reachable through the Neon HTTP driver (a Neon branch):
@@ -19,6 +20,7 @@ type Mods = {
   schema: typeof import("@/lib/db/schema");
   runTick: typeof import("@/lib/tick/tick").runTick;
   createRun: typeof import("@/lib/runs/create").createRun;
+  createSchedule: typeof import("@/lib/schedules/store").createSchedule;
   connect: typeof import("@/lib/connections").connect;
   getRunWithStages: typeof import("@/lib/runs/queries").getRunWithStages;
 };
@@ -37,15 +39,16 @@ describe.skipIf(!TEST_URL)("tick integration (fake Devin + TEST_DATABASE_URL)", 
     process.env.ENCRYPTION_KEY ??= "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
     process.env.DEVIN_API_BASE = await fake.start();
 
-    const [{ db }, schema, { runTick }, { createRun }, { connect }, { getRunWithStages }] = await Promise.all([
+    const [{ db }, schema, { runTick }, { createRun }, { createSchedule }, { connect }, { getRunWithStages }] = await Promise.all([
       import("@/lib/db/client"),
       import("@/lib/db/schema"),
       import("@/lib/tick/tick"),
       import("@/lib/runs/create"),
+      import("@/lib/schedules/store"),
       import("@/lib/connections"),
       import("@/lib/runs/queries"),
     ]);
-    m = { db, schema, runTick, createRun, connect, getRunWithStages };
+    m = { db, schema, runTick, createRun, createSchedule, connect, getRunWithStages };
 
     const { migrate } = await import("drizzle-orm/neon-http/migrator");
     await migrate(db, { migrationsFolder: "./drizzle" });
@@ -150,5 +153,44 @@ describe.skipIf(!TEST_URL)("tick integration (fake Devin + TEST_DATABASE_URL)", 
     expect(data!.run.status).toBe("failed");
     expect(data!.run.outcomeReason).toMatch(/deadline/);
     expect(data!.stages.find((s) => s.role === "implement")?.status).toBe("skipped");
+  }, 60_000);
+
+  it("fires an enabled schedule once per local day and never fires a disabled schedule", async () => {
+    const start = localParts(clock, "UTC");
+    if (start.hour === 23 && start.minute >= 57) clock = new Date(clock.getTime() + 5 * 60_000);
+    const target = new Date(clock.getTime() + 2 * 60_000);
+    const p = localParts(target, "UTC");
+    const deadline = localParts(new Date(target.getTime() + 3 * 3_600_000), "UTC");
+    const timing = {
+      at_hour: p.hour,
+      at_minute: p.minute,
+      tz: "UTC",
+      deadline_hour: deadline.hour,
+      deadline_minute: deadline.minute,
+      goal: "Run the scheduled integration scenario",
+      repo: REPO,
+      template_id: "build",
+    } as const;
+    const a = await m.createSchedule({ ...timing, enabled: true, name: "fires" }, connection, clock);
+    expect(a.lastFiredOn).toBeNull();
+    const b = await m.createSchedule({ ...timing, enabled: false, name: "disabled" }, connection, clock);
+
+    let r = await tick();
+    expect(r.fired).toBe(0);
+    r = await tick();
+    expect(r.fired).toBe(1);
+    const at = clock;
+    let aRuns = await m.db.select().from(m.schema.runs).where(eq(m.schema.runs.scheduleId, a.id));
+    expect(aRuns).toHaveLength(1);
+    expect(aRuns[0].deadlineAt).toEqual(nextDeadline(a, at));
+    const [firedA] = await m.db.select().from(m.schema.schedules).where(eq(m.schema.schedules.id, a.id));
+    expect(firedA.lastFiredOn).toBe(p.date);
+
+    r = await tick();
+    expect(r.fired).toBe(0);
+    aRuns = await m.db.select().from(m.schema.runs).where(eq(m.schema.runs.scheduleId, a.id));
+    expect(aRuns).toHaveLength(1);
+    expect(await m.db.select().from(m.schema.runs).where(eq(m.schema.runs.scheduleId, b.id))).toHaveLength(0);
+    expect(fake.violations).toEqual([]);
   }, 60_000);
 });
