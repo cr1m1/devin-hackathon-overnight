@@ -204,7 +204,8 @@ export class FakeDevin {
     const tags = req.tags ?? [];
     if (tags.length !== 3 || tags[0] !== "overnight" || !tags[1]?.startsWith("run:") || !tags[2]?.startsWith("stage:")) fail(`bad tags ${JSON.stringify(tags)}`);
     const stageTag = tags.find((t) => t.startsWith("stage:"));
-    if (stageTag && this.creates.filter((c) => c.tags?.includes(stageTag)).length > 1) fail(`second create for ${stageTag}`);
+    // A retry after a 429 is fine (nothing was created); a second create once a Session exists is not.
+    if (stageTag && this.byTag(stageTag).length > 0) fail(`second create for ${stageTag}`);
   }
 }
 

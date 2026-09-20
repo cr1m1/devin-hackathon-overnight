@@ -1,10 +1,13 @@
+import { neonConfig } from "@neondatabase/serverless";
 import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { FakeDevin } from "./fake-devin/server";
 
 // Plan §16.3. Needs a real Postgres reachable through the Neon HTTP driver (a Neon branch):
 //   TEST_DATABASE_URL=postgresql://… npm test -- tests/tick.test.ts
-// Without it the whole file is skipped.
+// or a local Postgres behind a Neon-compatible HTTP proxy (e.g. ghcr.io/timowilhelm/local-neon-http-proxy):
+//   TEST_DATABASE_URL=postgres://postgres:postgres@pg:5432/overnight TEST_NEON_HTTP_ENDPOINT=http://localhost:4444/sql npm test -- tests/tick.test.ts
+// Without TEST_DATABASE_URL the whole file is skipped.
 
 const TEST_URL = process.env.TEST_DATABASE_URL;
 const ORG = "org-fakefakefake0001";
@@ -30,6 +33,7 @@ describe.skipIf(!TEST_URL)("tick integration (fake Devin + TEST_DATABASE_URL)", 
 
   beforeAll(async () => {
     process.env.DATABASE_URL = TEST_URL;
+    if (process.env.TEST_NEON_HTTP_ENDPOINT) neonConfig.fetchEndpoint = process.env.TEST_NEON_HTTP_ENDPOINT;
     process.env.ENCRYPTION_KEY ??= "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
     process.env.DEVIN_API_BASE = await fake.start();
 

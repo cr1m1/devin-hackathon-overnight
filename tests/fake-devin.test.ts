@@ -58,4 +58,13 @@ describe("fake Devin v3 server", () => {
     expect(fake.violations.some((v) => v.includes("Namadgi/secret"))).toBe(true);
     expect(fake.violations.some((v) => v.includes("second create for stage:stg_d"))).toBe(true);
   });
+
+  it("does not count a retry after a 429 as a second create", async () => {
+    fake.plan({ kind: "rate-limit" }, { kind: "stay-working" });
+    await expect(client.startSession(create("stg_e"))).rejects.toMatchObject({ isRateLimit: true });
+    await client.startSession(create("stg_e"));
+    expect(fake.violations.some((v) => v.includes("stage:stg_e"))).toBe(false);
+    await client.startSession(create("stg_e"));
+    expect(fake.violations.some((v) => v.includes("second create for stage:stg_e"))).toBe(true);
+  });
 });
