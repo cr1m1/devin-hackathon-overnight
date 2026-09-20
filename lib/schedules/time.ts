@@ -17,23 +17,30 @@ export function isValidTimeZone(tz: string): boolean {
   }
 }
 
-const hour = z.coerce.number().int().min(0).max(23);
-const minute = z.coerce.number().int().min(0).max(59);
+const hour = z.number().int().min(0).max(23);
+const minute = z.number().int().min(0).max(59);
 
-export const scheduleInput = z.object({
+const scheduleFields = {
   name: z.string().trim().min(1).max(80),
   goal: z.string().trim().min(8, "describe the goal in at least a sentence").max(8000),
   repo: z.string().trim(),
-  template_id: z.string().default("build"),
+  template_id: z.string().min(1),
   at_hour: hour,
   at_minute: minute,
   tz: z.string().trim().refine(isValidTimeZone, "unknown IANA time zone"),
   deadline_hour: hour,
   deadline_minute: minute,
-  enabled: z.boolean().default(true),
+  enabled: z.boolean(),
+};
+
+export const scheduleInput = z.object({
+  ...scheduleFields,
+  template_id: scheduleFields.template_id.default("build"),
+  enabled: scheduleFields.enabled.default(true),
 });
 export type ScheduleInput = z.infer<typeof scheduleInput>;
-export const schedulePatch = scheduleInput.partial();
+/** Every field optional and none defaulted, so PATCH { name } changes only the name. */
+export const schedulePatch = z.object(scheduleFields).partial();
 export type SchedulePatch = z.infer<typeof schedulePatch>;
 
 export type ScheduleTiming = Pick<Schedule, "atHour" | "atMinute" | "tz" | "deadlineHour" | "deadlineMinute" | "enabled" | "lastFiredOn">;
@@ -61,6 +68,16 @@ export function isDue(s: ScheduleTiming, now: Date): boolean {
   const local = localParts(now, s.tz);
   if (s.lastFiredOn === local.date) return false;
   return local.hour * 60 + local.minute >= s.atHour * 60 + s.atMinute;
+}
+
+/**
+ * `last_fired_on` for a schedule that is created or re-enabled at `now`: today's local date when
+ * its start time has already passed (so it waits for tomorrow instead of firing on the next Tick),
+ * otherwise null.
+ */
+export function initialLastFiredOn(s: Pick<ScheduleTiming, "atHour" | "atMinute" | "tz">, now: Date): string | null {
+  const local = localParts(now, s.tz);
+  return local.hour * 60 + local.minute >= s.atHour * 60 + s.atMinute ? local.date : null;
 }
 
 /**

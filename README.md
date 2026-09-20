@@ -22,7 +22,7 @@ cron (every minute) ─▶ GET /api/tick
 
 - **Routing is data**: `lib/flow/templates.ts` declares the happy path and its exception edges. Adding a stage type never touches the tick.
 - **Deadlines are hard**: nothing starts that cannot finish in time; a running stage is nudged 15 min before the deadline and archived 15 min after.
-- **Schedules** (Settings → Schedules, `/api/schedules`): a name, goal, repository, a start time and a deadline time in an IANA time zone. The tick creates the run through the same path as `POST /api/runs` (same repo rules), with the deadline at the next occurrence of the deadline time; `last_fired_on` is claimed before the run is created so overlapping ticks fire at most once per day.
+- **Schedules** (Settings → Schedules, `/api/schedules`): a name, goal, repository, a start time and a deadline time in an IANA time zone. The tick creates the run through the same path as `POST /api/runs` (same repo rules), with the deadline at the next occurrence of the deadline time; `last_fired_on` is claimed before the run is created so overlapping ticks fire at most once per day (if run creation then fails — e.g. the repo is refused — the day is skipped and the error is in the tick result). A schedule created or re-enabled after its start time waits for the next day rather than firing immediately.
 - **Two ticks can never double-start a stage**: a partial unique index (`stages_one_active`) plus a lease row.
 - **The morning is the product**: the Inbox and the deterministic run report (no summarizer model) are the deliverable.
 

@@ -17,7 +17,7 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
   const c = await currentConnection();
   const data = await getRunWithStages(id, c?.id ?? null);
   if (!data) notFound();
-  const { run, stages } = data;
+  const { run, stages, scheduleName } = data;
   const terminal = TERMINAL_RUN_STATUSES.includes(run.status);
   const blocking = run.status === "blocked" ? stages.find((s) => s.verdict === "blocked") : undefined;
 
@@ -59,7 +59,7 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
             <>
               <dt className="text-ink-3">Started by</dt>
               <dd>
-                <Mono className="text-ink">schedule {run.scheduleId}</Mono>
+                <Mono className="text-ink">schedule {scheduleName ?? `${run.scheduleId} (deleted)`}</Mono>
               </dd>
             </>
           )}

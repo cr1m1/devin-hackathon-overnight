@@ -4,7 +4,7 @@ import { schedules, type Connection, type Schedule } from "@/lib/db/schema";
 import { newScheduleId } from "@/lib/ids";
 import { repoRefusalFor } from "@/lib/connections";
 import { CreateRunError } from "@/lib/runs/create";
-import type { ScheduleInput, SchedulePatch } from "./time";
+import { initialLastFiredOn, type ScheduleInput, type SchedulePatch } from "./time";
 
 // ---- DB access, scoped to a Connection --------------------------------------------------------
 
@@ -30,6 +30,7 @@ export async function createSchedule(input: ScheduleInput, owner: Pick<Connectio
       deadlineHour: input.deadline_hour,
       deadlineMinute: input.deadline_minute,
       enabled: input.enabled,
+      lastFiredOn: initialLastFiredOn({ atHour: input.at_hour, atMinute: input.at_minute, tz: input.tz }, now),
       createdAt: now,
       updatedAt: now,
     })
@@ -47,6 +48,13 @@ export async function updateSchedule(
     const refusal = repoRefusalFor(owner, patch.repo);
     if (refusal) throw new CreateRunError(refusal);
   }
+  const [current] = await db
+    .select()
+    .from(schedules)
+    .where(and(eq(schedules.id, id), eq(schedules.connectionId, owner.id)));
+  if (!current) return null;
+  const reEnabled = patch.enabled === true && !current.enabled;
+  const timing = { atHour: patch.at_hour ?? current.atHour, atMinute: patch.at_minute ?? current.atMinute, tz: patch.tz ?? current.tz };
   const [row] = await db
     .update(schedules)
     .set({
@@ -60,6 +68,7 @@ export async function updateSchedule(
       ...(patch.deadline_hour !== undefined ? { deadlineHour: patch.deadline_hour } : {}),
       ...(patch.deadline_minute !== undefined ? { deadlineMinute: patch.deadline_minute } : {}),
       ...(patch.enabled !== undefined ? { enabled: patch.enabled } : {}),
+      ...(reEnabled ? { lastFiredOn: initialLastFiredOn(timing, now) } : {}),
       updatedAt: now,
     })
     .where(and(eq(schedules.id, id), eq(schedules.connectionId, owner.id)))

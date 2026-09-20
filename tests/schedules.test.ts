@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isDue, isValidTimeZone, localParts, MIN_DEADLINE_LEAD_MIN, nextDeadline, scheduleInput } from "@/lib/schedules/time";
+import { initialLastFiredOn, isDue, isValidTimeZone, localParts, MIN_DEADLINE_LEAD_MIN, nextDeadline, scheduleInput, schedulePatch } from "@/lib/schedules/time";
 
 const timing = (over: Partial<Parameters<typeof isDue>[0]> = {}) => ({
   atHour: 22,
@@ -108,5 +108,44 @@ describe("scheduleInput", () => {
     expect(scheduleInput.safeParse({ ...good, deadline_minute: 60 }).success).toBe(false);
     expect(scheduleInput.safeParse({ ...good, at_hour: -1 }).success).toBe(false);
     expect(scheduleInput.safeParse({ ...good, at_hour: 1.5 }).success).toBe(false);
+  });
+
+  it("rejects hours and minutes that are not numbers (no coercion)", () => {
+    expect(scheduleInput.safeParse({ ...good, at_hour: "" }).success).toBe(false);
+    expect(scheduleInput.safeParse({ ...good, at_minute: null }).success).toBe(false);
+    expect(scheduleInput.safeParse({ ...good, deadline_hour: true }).success).toBe(false);
+    expect(scheduleInput.safeParse({ ...good, deadline_hour: "8" }).success).toBe(false);
+  });
+});
+
+describe("schedulePatch", () => {
+  it("does not inject defaults, so a rename leaves enabled/template untouched", () => {
+    const parsed = schedulePatch.parse({ name: "renamed" });
+    expect(parsed).toEqual({ name: "renamed" });
+    expect(parsed.enabled).toBeUndefined();
+    expect(parsed.template_id).toBeUndefined();
+  });
+
+  it("still validates the fields it is given", () => {
+    expect(schedulePatch.safeParse({ enabled: false }).success).toBe(true);
+    expect(schedulePatch.safeParse({ at_hour: 24 }).success).toBe(false);
+    expect(schedulePatch.safeParse({ at_hour: "3" }).success).toBe(false);
+    expect(schedulePatch.safeParse({ tz: "Mars/Olympus" }).success).toBe(false);
+  });
+});
+
+describe("initialLastFiredOn", () => {
+  const s = { atHour: 8, atMinute: 0, tz: "Europe/Budapest" };
+
+  it("marks today as fired when created after the start time, so the next tick does not catch up", () => {
+    const created = new Date("2026-07-01T13:00:00Z"); // 15:00 local
+    const last = initialLastFiredOn(s, created);
+    expect(last).toBe("2026-07-01");
+    expect(isDue({ ...s, deadlineHour: 8, deadlineMinute: 0, enabled: true, lastFiredOn: last }, created)).toBe(false);
+    expect(isDue({ ...s, deadlineHour: 8, deadlineMinute: 0, enabled: true, lastFiredOn: last }, new Date("2026-07-02T06:00:00Z"))).toBe(true);
+  });
+
+  it("leaves it null when the start time is still ahead today", () => {
+    expect(initialLastFiredOn(s, new Date("2026-07-01T04:00:00Z"))).toBeNull(); // 06:00 local
   });
 });

@@ -23,10 +23,14 @@ export async function PATCH(req: Request, { params }: Params) {
 }
 
 export async function DELETE(_req: Request, { params }: Params) {
-  const { id } = await params;
-  const c = await currentConnection();
-  if (!c) return json({ error: "not connected" }, 401);
-  const ok = await deleteSchedule(id, c.id);
-  if (!ok) return json({ error: "not found" }, 404);
-  return json({ ok: true });
+  try {
+    const { id } = await params;
+    const c = await currentConnection();
+    if (!c) return json({ error: "not connected" }, 401);
+    const ok = await deleteSchedule(id, c.id);
+    if (!ok) return json({ error: "not found" }, 404);
+    return json({ ok: true });
+  } catch (e) {
+    return errorResponse(e);
+  }
 }
