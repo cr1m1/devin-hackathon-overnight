@@ -1,6 +1,7 @@
 import { and, eq, inArray } from "drizzle-orm";
 import type { Db } from "@/lib/db/client";
 import { runs, stages, type Run, type RunStatus, type Stage } from "@/lib/db/schema";
+import { criteriaResults, passedCount } from "@/lib/flow/criteria";
 import { ROLES } from "@/lib/flow/roles";
 import { formatDuration } from "@/lib/time";
 
@@ -29,9 +30,9 @@ export function buildSummary(
   lines.push(`**Pull requests:** ${run.pullRequests.length ? run.pullRequests.map((p) => p.url).join(", ") : "none"}`);
   const validate = [...stageRows].reverse().find((s) => s.role === "validate" && s.status === "done");
   if (run.acceptanceCriteria?.length) {
-    const passed = validate?.reportMd ? (validate.reportMd.match(/\bPASS\b/g) ?? []).length : 0;
+    const passed = passedCount(criteriaResults(run.acceptanceCriteria, validate?.reportMd));
     lines.push(
-      `**Acceptance criteria:** ${validate ? `${Math.min(passed, run.acceptanceCriteria.length)} passed / ${run.acceptanceCriteria.length}` : `${run.acceptanceCriteria.length} defined, not validated`}`,
+      `**Acceptance criteria:** ${validate ? `${passed} passed / ${run.acceptanceCriteria.length}` : `${run.acceptanceCriteria.length} defined, not validated`}`,
     );
   }
   const first = stageRows.find((s) => s.startedAt)?.startedAt ?? run.createdAt;
