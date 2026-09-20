@@ -17,7 +17,7 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
   const c = await currentConnection();
   const data = await getRunWithStages(id, c?.id ?? null);
   if (!data) notFound();
-  const { run, stages } = data;
+  const { run, stages, scheduleName } = data;
   const terminal = TERMINAL_RUN_STATUSES.includes(run.status);
   const blocking = run.status === "blocked" ? stages.find((s) => s.verdict === "blocked") : undefined;
 
@@ -55,6 +55,14 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
               {acu(run.acuSpent)} of {acu(run.acuBudget)}
             </Mono>
           </dd>
+          {run.scheduleId && (
+            <>
+              <dt className="text-ink-3">Started by</dt>
+              <dd>
+                <Mono className="text-ink">schedule {scheduleName ?? `${run.scheduleId} (deleted)`}</Mono>
+              </dd>
+            </>
+          )}
           {run.pullRequests.length > 0 && (
             <>
               <dt className="text-ink-3">Pull requests</dt>

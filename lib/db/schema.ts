@@ -122,23 +122,28 @@ export const stages = pgTable(
   ],
 );
 
-export const schedules = pgTable("schedules", {
-  id: text("id").primaryKey(),
-  workspaceId: text("workspace_id"),
-  name: text("name").notNull(),
-  goal: text("goal").notNull(),
-  repo: text("repo").notNull(),
-  templateId: text("template_id").notNull().default("build"),
-  atHour: integer("at_hour").notNull(),
-  atMinute: integer("at_minute").notNull(),
-  tz: text("tz").notNull(),
-  deadlineHour: integer("deadline_hour").notNull(),
-  deadlineMinute: integer("deadline_minute").notNull(),
-  enabled: boolean("enabled").notNull().default(true),
-  lastFiredOn: date("last_fired_on", { mode: "string" }),
-  createdAt: ts("created_at").notNull().defaultNow(),
-  updatedAt: ts("updated_at").notNull().defaultNow(),
-});
+export const schedules = pgTable(
+  "schedules",
+  {
+    id: text("id").primaryKey(),
+    connectionId: text("connection_id").references(() => connections.id, { onDelete: "cascade" }),
+    workspaceId: text("workspace_id"),
+    name: text("name").notNull(),
+    goal: text("goal").notNull(),
+    repo: text("repo").notNull(),
+    templateId: text("template_id").notNull().default("build"),
+    atHour: integer("at_hour").notNull(),
+    atMinute: integer("at_minute").notNull(),
+    tz: text("tz").notNull(),
+    deadlineHour: integer("deadline_hour").notNull(),
+    deadlineMinute: integer("deadline_minute").notNull(),
+    enabled: boolean("enabled").notNull().default(true),
+    lastFiredOn: date("last_fired_on", { mode: "string" }),
+    createdAt: ts("created_at").notNull().defaultNow(),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+  },
+  (t) => [index("schedules_enabled_connection_idx").on(t.enabled, t.connectionId)],
+);
 
 // Single row, id = 1, seeded by migration (§6.4). Lease for the tick + last-run bookkeeping.
 export const tickLock = pgTable("tick_lock", {
@@ -153,4 +158,5 @@ export type NewRun = typeof runs.$inferInsert;
 export type Stage = typeof stages.$inferSelect;
 export type NewStage = typeof stages.$inferInsert;
 export type Schedule = typeof schedules.$inferSelect;
+export type NewSchedule = typeof schedules.$inferInsert;
 export type Connection = typeof connections.$inferSelect;

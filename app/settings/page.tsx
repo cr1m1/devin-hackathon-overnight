@@ -1,15 +1,17 @@
 import { ConnectDevinForm, DisconnectButton, RepoListsEditor } from "@/components/connect-devin";
+import { SchedulesSection } from "@/components/schedules";
 import { Mono, PageTitle, Pill } from "@/components/ui";
 import { currentConnection } from "@/lib/connections";
 import { getConnectionHealth, getHealth } from "@/lib/health";
 import { relative, shortDate } from "@/lib/format";
+import { listSchedules } from "@/lib/schedules/store";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Settings" };
 
 export default async function SettingsPage() {
   const [h, c] = await Promise.all([getHealth(), currentConnection()]);
-  const ch = c ? await getConnectionHealth(c) : null;
+  const [ch, scheduleRows] = c ? await Promise.all([getConnectionHealth(c), listSchedules(c.id)]) : [null, []];
   const owners = ch ? Object.entries(ch.owners).sort((x, y) => y[1] - x[1]) : [];
 
   return (
@@ -73,6 +75,12 @@ export default async function SettingsPage() {
         </Section>
       )}
 
+      {c && (
+        <Section plain title="Schedules" hint="Recurring runs. Each fires once per day at its local start time and gets the next occurrence of its deadline time as the hard stop.">
+          <SchedulesSection schedules={scheduleRows} />
+        </Section>
+      )}
+
       <Section title="This instance">
         <Row label="Database" value={h.db === "ok" ? <Pill tone="ok">reachable</Pill> : <Pill tone="bad">unreachable</Pill>} />
         <Row label="Credential storage" value={h.encryption === "ok" ? <Pill tone="ok">encrypted at rest</Pill> : <Pill tone="bad">encryption key missing</Pill>} />
@@ -105,12 +113,12 @@ export default async function SettingsPage() {
   );
 }
 
-function Section({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
+function Section({ title, hint, plain, children }: { title: string; hint?: string; plain?: boolean; children: React.ReactNode }) {
   return (
     <section className="mb-10">
       <h2 className="text-sm font-medium mb-1">{title}</h2>
       {hint && <p className="text-xs text-ink-3 mb-3 max-w-[60ch]">{hint}</p>}
-      <dl className="border-t border-rule">{children}</dl>
+      {plain ? <div className="border-t border-rule">{children}</div> : <dl className="border-t border-rule">{children}</dl>}
     </section>
   );
 }

@@ -95,7 +95,7 @@ export function NewRunForm({ chain }: { chain: string[] }) {
   );
 }
 
-const inputClass = "w-full rounded-md border border-rule bg-white px-3 py-2 text-sm text-ink placeholder:text-ink-3 focus:outline-none focus:border-ink";
+export const inputClass = "w-full rounded-md border border-rule bg-white px-3 py-2 text-sm text-ink placeholder:text-ink-3 focus:outline-none focus:border-ink";
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
@@ -107,7 +107,7 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
   );
 }
 
-function RepoPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+export function RepoPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [repos, setRepos] = useState<RepoOption[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [q, setQ] = useState("");

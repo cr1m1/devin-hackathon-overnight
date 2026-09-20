@@ -15,6 +15,13 @@
       "when": 1789822349050,
       "tag": "0001_connections",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789932248877,
+      "tag": "0002_schedules_connection",
+      "breakpoints": true
     }
   ]
 }

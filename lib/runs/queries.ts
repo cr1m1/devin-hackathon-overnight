@@ -1,9 +1,12 @@
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { runs, stages, type Run, type Stage, type StageRole } from "@/lib/db/schema";
+import { runs, schedules, stages, type Run, type Stage, type StageRole } from "@/lib/db/schema";
 
-/** A run is only visible to the connection that owns it. */
-export async function getRunWithStages(id: string, connectionId: string | null): Promise<{ run: Run; stages: Stage[] } | null> {
+/** A run is only visible to the connection that owns it. `scheduleName` is null when the schedule was deleted. */
+export async function getRunWithStages(
+  id: string,
+  connectionId: string | null,
+): Promise<{ run: Run; stages: Stage[]; scheduleName: string | null } | null> {
   if (!connectionId) return null;
   const [run] = await db
     .select()
@@ -11,7 +14,12 @@ export async function getRunWithStages(id: string, connectionId: string | null):
     .where(and(eq(runs.id, id), eq(runs.connectionId, connectionId)));
   if (!run) return null;
   const stageRows = await db.select().from(stages).where(eq(stages.runId, id)).orderBy(asc(stages.seq));
-  return { run, stages: stageRows };
+  let scheduleName: string | null = null;
+  if (run.scheduleId) {
+    const [s] = await db.select({ name: schedules.name }).from(schedules).where(eq(schedules.id, run.scheduleId));
+    scheduleName = s?.name ?? null;
+  }
+  return { run, stages: stageRows, scheduleName };
 }
 
 export function listRuns(connectionId: string | null, limit = 50): Promise<Run[]> {
