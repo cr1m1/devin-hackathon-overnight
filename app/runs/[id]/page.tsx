@@ -55,6 +55,14 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
               {acu(run.acuSpent)} of {acu(run.acuBudget)}
             </Mono>
           </dd>
+          {run.scheduleId && (
+            <>
+              <dt className="text-ink-3">Started by</dt>
+              <dd>
+                <Mono className="text-ink">schedule {run.scheduleId}</Mono>
+              </dd>
+            </>
+          )}
           {run.pullRequests.length > 0 && (
             <>
               <dt className="text-ink-3">Pull requests</dt>

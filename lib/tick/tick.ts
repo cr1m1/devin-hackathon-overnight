@@ -3,8 +3,9 @@ import { env } from "@/lib/env";
 import { acquireLease, recordResult } from "./lease";
 import { admitPhase, pollPhase, reconcilePhase } from "./phases";
 import { routePhase } from "./routing";
+import { schedulesPhase } from "./schedules";
 
-// Plan §11. M1 ships the guard and the phase skeleton; phases fill in over M2–M5.
+// Plan §11. Guard + six phases (terminate is invoked inline by the phases that decide it).
 // Every phase is a function of (db, now) with no module-level state (§2.1).
 
 export type TickResult = {
@@ -35,7 +36,7 @@ export const phases: Phase[] = [
   { name: "reconcile", run: reconcilePhase },
   { name: "route", run: routePhase },
   { name: "admit", run: admitPhase },
-  { name: "schedules", run: async () => {} },
+  { name: "schedules", run: schedulesPhase },
 ];
 
 export async function runTick(db: Db, now = new Date()): Promise<TickResult> {

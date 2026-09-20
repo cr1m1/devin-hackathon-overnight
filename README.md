@@ -17,11 +17,12 @@ cron (every minute) ─▶ GET /api/tick
    2. reconcile lost create responses by tag  (v3 has no idempotency flag)
    3. route    verdict → proceed | insert stages (edge) | terminate run      ← pure function over data
    4. admit    deadline / budget / stage-budget / allowlist gates, claim in DB, then start a session
-   5. schedules (recurring runs)
+   5. schedules (recurring runs): each enabled schedule fires once per local day at its start time
 ```
 
 - **Routing is data**: `lib/flow/templates.ts` declares the happy path and its exception edges. Adding a stage type never touches the tick.
 - **Deadlines are hard**: nothing starts that cannot finish in time; a running stage is nudged 15 min before the deadline and archived 15 min after.
+- **Schedules** (Settings → Schedules, `/api/schedules`): a name, goal, repository, a start time and a deadline time in an IANA time zone. The tick creates the run through the same path as `POST /api/runs` (same repo rules), with the deadline at the next occurrence of the deadline time; `last_fired_on` is claimed before the run is created so overlapping ticks fire at most once per day.
 - **Two ticks can never double-start a stage**: a partial unique index (`stages_one_active`) plus a lease row.
 - **The morning is the product**: the Inbox and the deterministic run report (no summarizer model) are the deliverable.
 
@@ -53,7 +54,7 @@ The first thing to click: **Settings → Connect Devin** (organization id + serv
 Note: the Devin org behind your key must have the target repository connected in its GitHub integration. Sessions consume that org's ACUs (each stage carries a `max_acu_limit`). Per-connection allow/deny rules (e.g. `personal/*` allowed, `work-org/*` denied) are edited in Settings.
 
 ```bash
-npm run lint && npm run typecheck && npm test   # 52 unit tests (routing, admission, poll mapping, prompt, schema, allowlist)
+npm run lint && npm run typecheck && npm test   # unit tests (routing, admission, poll mapping, prompt, schema, allowlist, schedules)
 ```
 
 ## Deploy
@@ -62,4 +63,4 @@ Vercel (Hobby is enough) + Neon. Set `DATABASE_URL`, `ENCRYPTION_KEY`, `CRON_SEC
 
 ## Status
 
-Built during the Budapest hackathon. Shipped: bring-your-own Devin connections (encrypted at rest, per-connection repo rules), run creation with repository picker, full stage chain with data-declared routing and `amend` insertion, deadline and budget admission, nudge + grace, tag reconciliation, deterministic reports, Inbox, Settings with health. Cancel archives the in-flight session. Not yet: recurring schedules UI, multiple connections per browser.
+Built during the Budapest hackathon. Shipped: bring-your-own Devin connections (encrypted at rest, per-connection repo rules), run creation with repository picker, full stage chain with data-declared routing and `amend` insertion, deadline and budget admission, nudge + grace, tag reconciliation, deterministic reports, Inbox, Settings with health. Cancel archives the in-flight session. Recurring schedules with enable/disable in Settings. Not yet: multiple connections per browser.
