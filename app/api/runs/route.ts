@@ -1,6 +1,8 @@
 import { currentConnection } from "@/lib/connections";
 import { clientIp, errorResponse, json } from "@/lib/http";
+import { db } from "@/lib/db/client";
 import { createRun, createRunInput } from "@/lib/runs/create";
+import { enforceDemoLimit } from "@/lib/runs/rate-limit";
 import { listRuns } from "@/lib/runs/queries";
 
 export const runtime = "nodejs";
@@ -20,7 +22,9 @@ export async function POST(req: Request) {
     const c = await currentConnection();
     if (!c) return json({ error: "Connect your Devin account in Settings first." }, 401);
     const input = createRunInput.parse(await req.json());
-    const created = await createRun(input, c, { createdIp: clientIp(req) });
+    const ip = clientIp(req);
+    await enforceDemoLimit(db, ip);
+    const created = await createRun(input, c, { createdIp: ip });
     return json(created, 201);
   } catch (e) {
     return errorResponse(e);

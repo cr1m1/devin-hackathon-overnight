@@ -98,6 +98,7 @@ export const stages = pgTable(
     handoff: text("handoff"),
     pullRequests: jsonb("pull_requests").$type<PullRequestRef[]>().notNull().default([]),
     error: text("error"),
+    rateLimitedSince: ts("rate_limited_since"),
     nudgedAt: ts("nudged_at"),
     parseAttempts: integer("parse_attempts").notNull().default(0),
     pollCount: integer("poll_count").notNull().default(0),

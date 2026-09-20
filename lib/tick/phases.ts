@@ -11,6 +11,7 @@ import { STRUCTURED_OUTPUT_SCHEMA } from "@/lib/flow/schema";
 import { getTemplate } from "@/lib/flow/templates";
 import { admit, nextAdmissible, outcomeWithoutAcceptance, type Limits } from "./admission";
 import { decidePoll, mergePullRequests, NUDGE_DEADLINE, NUDGE_IDLE } from "./poll";
+import { decideRateLimited, RATE_LIMITED_REASON, streakResetForSkip } from "./rate-limited";
 import { terminateRun } from "./terminate";
 import type { TickContext } from "./tick";
 import { addMinutes, isoUtc } from "@/lib/time";
@@ -257,7 +258,11 @@ export async function admitPhase({ db, now, result, deadline }: TickContext): Pr
     if (!next) continue;
 
     const decision = admit(run, next.role, now, limits);
-    if (decision.kind === "skip") continue;
+    if (decision.kind === "skip") {
+      const reset = streakResetForSkip(next);
+      if (reset) await db.update(stages).set({ ...reset, updatedAt: now }).where(eq(stages.id, next.id));
+      continue;
+    }
     if (decision.kind === "terminate") {
       await terminateRun(db, run, decision.status, decision.reason, now);
       continue;
@@ -286,12 +291,24 @@ export async function admitPhase({ db, now, result, deadline }: TickContext): Pr
         secret_ids: [],
         ...(playbookIdFor(next.role) ? { playbook_id: playbookIdFor(next.role) } : {}),
       });
-      await db.update(stages).set({ sessionId: session.session_id, sessionUrl: session.url, status: "running", updatedAt: now }).where(eq(stages.id, next.id));
+      await db.update(stages).set({ sessionId: session.session_id, sessionUrl: session.url, status: "running", rateLimitedSince: null, updatedAt: now }).where(eq(stages.id, next.id));
       result.started++;
     } catch (e) {
       if (e instanceof DevinApiError) {
         if (e.isRateLimit) {
-          await db.update(stages).set({ status: "pending", startedAt: null, error: "rate limited; will retry", updatedAt: now }).where(eq(stages.id, next.id));
+          const rl = decideRateLimited(next.rateLimitedSince, now);
+          if (rl.kind === "give-up") {
+            await db
+              .update(stages)
+              .set({ status: "failed", error: `rate limited since ${isoUtc(rl.since)}`, finishedAt: now, updatedAt: now })
+              .where(eq(stages.id, next.id));
+            await terminateRun(db, await fresh(db, run.id), "failed", RATE_LIMITED_REASON, now);
+          } else {
+            await db
+              .update(stages)
+              .set({ status: "pending", startedAt: null, rateLimitedSince: rl.since, error: "rate limited; will retry", updatedAt: now })
+              .where(eq(stages.id, next.id));
+          }
         } else {
           await db
             .update(stages)
